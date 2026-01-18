@@ -17,6 +17,7 @@ interface WarehouseTask {
   location: string;
   event_date: string;
   assigned_to_name: string;
+  assigned_to_user_id?: string;
   customer_name: string;
   task_type: string;
   delivery_type?: string; // "internal" or "external"
