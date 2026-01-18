@@ -39,7 +39,7 @@ interface ProductAddon {
   addon_id: string;
   display_order: number;
   is_mandatory: boolean;
-  addons: Addon;
+  addons?: Addon | Addon[] | any;
 }
 
 export default function ProductsPage() {
