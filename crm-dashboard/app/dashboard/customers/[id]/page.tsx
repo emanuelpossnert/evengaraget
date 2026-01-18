@@ -108,7 +108,6 @@ export default function CustomerCRMPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [notes, setNotes] = useState<CustomerNote[]>([]);
   const [tasks, setTasks] = useState<CustomerTask[]>([]);
-  const [callLog, setCallLog] = useState<CustomerCallLog[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [bookingComments, setBookingComments] = useState<BookingComment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -174,15 +173,6 @@ export default function CustomerCRMPage() {
         .order("due_date", { ascending: true });
 
       if (tasksData) setTasks(tasksData);
-
-      // Fetch call log
-      const { data: callLogData } = await supabase
-        .from("customer_call_log")
-        .select("*")
-        .eq("customer_id", customerId)
-        .order("call_date", { ascending: false });
-
-      if (callLogData) setCallLog(callLogData);
 
       // Fetch conversations for this customer
       const { data: conversationsData } = await supabase
@@ -538,7 +528,6 @@ export default function CustomerCRMPage() {
           { id: "overview", label: "Översikt", icon: "📊" },
           { id: "notes", label: `Anteckningar (${notes.length})`, icon: "📝" },
           { id: "tasks", label: `Uppgifter (${pendingTasks})`, icon: "✓" },
-          { id: "calls", label: `Samtal (${callLog.length})`, icon: "☎️" },
           { id: "booking-messages", label: `Meddelanden (${bookingComments.length})`, icon: "💬" },
           { id: "messages", label: `E-post (${messages.length})`, icon: "📧" },
           { id: "bookings", label: `Bokningar (${bookings.length})`, icon: "📦" },
@@ -845,8 +834,8 @@ export default function CustomerCRMPage() {
         </div>
       )}
 
-      {/* CALLS TAB */}
-      {activeTab === "calls" && (
+      {/* CALLS TAB - DISABLED */}
+      {/* {activeTab === "calls" && (
         <div className="space-y-4">
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4">☎️ Logga Samtal</h2>
@@ -948,7 +937,7 @@ export default function CustomerCRMPage() {
             ))}
           </div>
         </div>
-      )}
+      )} */}
 
       {/* BOOKING MESSAGES TAB */}
       {activeTab === "booking-messages" && (
