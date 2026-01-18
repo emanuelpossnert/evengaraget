@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# SQL files (dev only)
+*.sql
+
+# SQL backups and docs (dev only)
+*_backup.sql
+*_SETUP.sql
+*_FINAL.sql
+SETUP_*.md
+LATEST_*.md
+LOGIN_*.md
+
+# Build artifacts
+.turbo/
+turbo.json
