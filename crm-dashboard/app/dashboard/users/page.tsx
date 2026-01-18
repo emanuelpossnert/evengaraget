@@ -27,7 +27,7 @@ export default function UsersPage() {
   const [formData, setFormData] = useState({
     email: "",
     full_name: "",
-    role: "support" as const,
+    role: "manager" as const,
   });
   const [newUserPassword, setNewUserPassword] = useState<{ email: string; password: string } | null>(null);
   const [visiblePassword, setVisiblePassword] = useState<string | null>(null);
