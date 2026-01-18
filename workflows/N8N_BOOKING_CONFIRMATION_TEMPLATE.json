@@ -1,0 +1,135 @@
+{
+  "name": "EventGaraget - Booking Confirmation Email",
+  "nodes": [
+    {
+      "parameters": {
+        "ruleset": [
+          {
+            "trigger": "on_table_insert",
+            "database_connection": "supabase",
+            "database": "booking_confirmations"
+          }
+        ]
+      },
+      "name": "Webhook - Booking Confirmed",
+      "type": "n8n-nodes-base.webhookTrigger",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT b.*, c.email, c.phone FROM bookings b LEFT JOIN customers c ON b.customer_id = c.id WHERE b.id = $1",
+        "queryParameters": "$json.body.booking_id"
+      },
+      "name": "Get Booking Details",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ],
+      "credentials": {
+        "postgres": "supabase_connection"
+      }
+    },
+    {
+      "parameters": {
+        "code": "// Extract booking details\nconst booking = $input.first().json[0];\nconst token = $json.body.token; // From webhook trigger\nconst appUrl = process.env.BOOKING_APP_URL || 'https://your-domain.com';\n\n// Build customer email with booking link\nconst bookingLink = `${appUrl}/booking/${token}`;\n\nreturn [{\n  json: {\n    to: booking.email || $json.body.customer_email,\n    subject: `Bokningsbekräftelse - ${booking.booking_number}`,\n    html: `\n      <!DOCTYPE html>\n      <html>\n        <head>\n          <style>\n            body { font-family: Arial, sans-serif; color: #333; }\n            .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }\n            .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }\n            .section { margin: 20px 0; }\n            .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 15px 0; }\n            .detail { background: white; padding: 10px; border-left: 4px solid #667eea; }\n            .detail-label { font-weight: bold; color: #667eea; font-size: 12px; }\n            .detail-value { font-size: 14px; margin-top: 5px; }\n            .button {\n              display: inline-block;\n              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n              color: white;\n              padding: 12px 30px;\n              border-radius: 8px;\n              text-decoration: none;\n              font-weight: bold;\n              margin: 20px 0;\n            }\n            .info-box {\n              background: #e3f2fd;\n              border-left: 4px solid #2196F3;\n              padding: 15px;\n              margin: 15px 0;\n              border-radius: 4px;\n            }\n            .footer {\n              text-align: center;\n              color: #999;\n              font-size: 12px;\n              margin-top: 30px;\n              border-top: 1px solid #ddd;\n              padding-top: 15px;\n            }\n          </style>\n        </head>\n        <body>\n          <div class=\"container\">\n            <div class=\"header\">\n              <h1>🎉 Bokningsbekräftelse</h1>\n              <p>Din bokning är bekräftad!</p>\n            </div>\n            <div class=\"content\">\n              <div class=\"section\">\n                <p>Hej,</p>\n                <p>Tack för din bokning! Vi är glada över att få jobba med dig.</p>\n                <p>Här är detaljer från din bokning:</p>\n              </div>\n              \n              <div class=\"details-grid\">\n                <div class=\"detail\">\n                  <div class=\"detail-label\">📋 Bokningsnummer</div>\n                  <div class=\"detail-value\">${booking.booking_number}</div>\n                </div>\n                <div class=\"detail\">\n                  <div class=\"detail-label\">📅 Event-datum</div>\n                  <div class=\"detail-value\">${new Date(booking.event_date).toLocaleDateString('sv-SE')}</div>\n                </div>\n                <div class=\"detail\">\n                  <div class=\"detail-label\">📍 Plats</div>\n                  <div class=\"detail-value\">${booking.location}</div>\n                </div>\n                <div class=\"detail\">\n                  <div class=\"detail-label\">💰 Totalt belopp</div>\n                  <div class=\"detail-value\">${booking.total_amount?.toLocaleString('sv-SE')} SEK</div>\n                </div>\n              </div>\n              \n              <div class=\"info-box\">\n                <strong>🎨 NÄSTA STEG - Ladda upp foliering-designs</strong>\n                <p>Klicka på knappen nedan för att logga in och ladda upp dina foliering-designs. Vi behöver dem senast 3 dagar före eventet.</p>\n              </div>\n              \n              <center>\n                <a href=\"${bookingLink}\" class=\"button\">Se bokningsdetaljer & Ladda upp designs</a>\n              </center>\n              \n              <div class=\"section\">\n                <p><strong>Viktig information:</strong></p>\n                <ul>\n                  <li>Länken ovan är personlig och gäller i 7 dagar</li>\n                  <li>Ladda upp dina designs så snart som möjligt</li>\n                  <li>Vi behöver godkänd design innan leverans</li>\n                  <li>Om du har frågor, kontakta oss på info@eventgaraget.se</li>\n                </ul>\n              </div>\n              \n              <div class=\"footer\">\n                <p>© EventGaraget 2024 - Vi gör events enkla</p>\n                <p>Denna email skickades till: ${booking.email}</p>\n              </div>\n            </div>\n          </div>\n        </body>\n      </html>\n    `,\n    booking_link: bookingLink,\n    booking_id: booking.id\n  }\n}];"
+      },
+      "name": "Format Confirmation Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        750,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "service": "gmail",
+        "fromEmail": "noreply@eventgaraget.se",
+        "toEmail": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "htmlBody": "={{$json.html}}"
+      },
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        300
+      ],
+      "credentials": {
+        "email": "gmail_account"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO webhook_logs (event_type, table_name, booking_id, payload, status, error_message) VALUES ('booking_confirmation_sent', 'booking_confirmations', $1, $2, 'success', null)",
+        "queryParameters": "$json.booking_id|$json.html"
+      },
+      "name": "Log Webhook Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        300
+      ],
+      "credentials": {
+        "postgres": "supabase_connection"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Booking Confirmed": {
+      "main": [
+        [
+          {
+            "node": "Get Booking Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Booking Details": {
+      "main": [
+        [
+          {
+            "node": "Format Confirmation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Confirmation Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Log Webhook Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
+

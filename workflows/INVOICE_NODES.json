@@ -1,0 +1,136 @@
+{
+  "name": "Fakturerings-Noder",
+  "description": "Lägg till dessa noder EFTER 'Get Booking Products' i signature-webhook.json",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Prepare invoice data from booking\nconst booking = $('Get Booking Details').item.json[0];\nconst products = $('Get Booking Products').all();\n\nconst depositAmount = booking.deposit_amount || (booking.total_amount * 0.5);\nconst dueDate = new Date();\ndueDate.setDate(dueDate.getDate() + 14); // 14 days payment term\n\nconst invoiceNumber = 'INV-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-6);\n\nconst invoiceItems = products.map(p => ({\n  description: `${p.product_name} (${p.quantity} st)`,\n  quantity: p.quantity,\n  unit_price: p.price_per_unit,\n  total: p.total_price\n}));\n\n// Add note about deposit\ninvoiceItems.push({\n  description: '--- HANDPENNING (50% av totalbelopp) ---',\n  quantity: 1,\n  unit_price: depositAmount,\n  total: depositAmount\n});\n\nreturn {\n  invoice_number: invoiceNumber,\n  booking_id: booking.id,\n  booking_number: booking.booking_number,\n  customer_id: booking.customer_id,\n  customer_name: booking.customer.name,\n  customer_email: booking.customer.email,\n  customer_company: booking.customer.company_name || booking.customer.name,\n  customer_org_number: booking.customer.org_number || '',\n  invoice_address: booking.invoice_address || booking.delivery_address || booking.customer.address,\n  invoice_date: new Date().toISOString().split('T')[0],\n  due_date: dueDate.toISOString().split('T')[0],\n  items: invoiceItems,\n  subtotal: booking.total_amount,\n  vat_rate: 0.25, // 25% moms\n  vat_amount: booking.total_amount * 0.25,\n  total_amount: booking.total_amount * 1.25, // Inkl moms\n  deposit_amount: depositAmount,\n  deposit_with_vat: depositAmount * 1.25,\n  remaining_amount: booking.total_amount - depositAmount,\n  payment_terms: '14 dagar netto',\n  notes: `Handpenning för bokning ${booking.booking_number}. Restbetalning (${booking.total_amount - depositAmount} kr + moms) betalas vid leverans.`,\n  reference: booking.customer.name,\n  created_at: new Date().toISOString()\n};"
+      },
+      "id": "prepare-invoice-data-001",
+      "name": "💰 Prepare Invoice Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 450],
+      "notes": "Förbereder fakturadata för handpenning"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://njiagzdssxoxycxraubf.supabase.co/rest/v1/invoices",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"invoice_number\": \"{{$json.invoice_number}}\",\n  \"booking_id\": \"{{$json.booking_id}}\",\n  \"customer_id\": \"{{$json.customer_id}}\",\n  \"invoice_date\": \"{{$json.invoice_date}}\",\n  \"due_date\": \"{{$json.due_date}}\",\n  \"amount\": {{$json.deposit_with_vat}},\n  \"vat_amount\": {{$json.vat_amount * 0.5}},\n  \"total_amount\": {{$json.deposit_with_vat}},\n  \"status\": \"pending\",\n  \"type\": \"deposit\",\n  \"payment_terms\": \"{{$json.payment_terms}}\",\n  \"notes\": \"{{$json.notes}}\",\n  \"created_at\": \"{{$json.created_at}}\"\n}",
+        "options": {}
+      },
+      "id": "create-invoice-record-002",
+      "name": "📝 Create Invoice Record (Supabase)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1500, 450],
+      "notes": "Sparar fakturan i Supabase"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate Invoice PDF HTML\nconst invoice = $input.first().json;\nconst booking = $('Get Booking Details').item.json[0];\n\nconst productsTableRows = invoice.items.slice(0, -1).map(item => `\n  <tr>\n    <td style=\"padding: 8px; border-bottom: 1px solid #ddd;\">${item.description}</td>\n    <td style=\"padding: 8px; border-bottom: 1px solid #ddd; text-align: center;\">${item.quantity}</td>\n    <td style=\"padding: 8px; border-bottom: 1px solid #ddd; text-align: right;\">${item.unit_price.toFixed(2)} kr</td>\n    <td style=\"padding: 8px; border-bottom: 1px solid #ddd; text-align: right;\">${item.total.toFixed(2)} kr</td>\n  </tr>\n`).join('');\n\nconst invoiceHtml = `\n<!DOCTYPE html>\n<html lang=\"sv\">\n<head>\n  <meta charset=\"UTF-8\">\n  <style>\n    @page { size: A4; margin: 2cm; }\n    body {\n      font-family: Arial, sans-serif;\n      font-size: 11pt;\n      line-height: 1.4;\n      color: #333;\n      margin: 0;\n      padding: 20px;\n    }\n    .invoice-header {\n      display: flex;\n      justify-content: space-between;\n      margin-bottom: 40px;\n      border-bottom: 3px solid #FF6B35;\n      padding-bottom: 20px;\n    }\n    .company-info {\n      flex: 1;\n    }\n    .invoice-info {\n      text-align: right;\n    }\n    .logo {\n      font-size: 28px;\n      font-weight: bold;\n      color: #FF6B35;\n      margin-bottom: 10px;\n    }\n    .invoice-title {\n      font-size: 32px;\n      font-weight: bold;\n      color: #2C3E50;\n      margin-bottom: 20px;\n    }\n    .info-section {\n      display: flex;\n      justify-content: space-between;\n      margin-bottom: 30px;\n    }\n    .info-box {\n      flex: 1;\n      margin-right: 20px;\n    }\n    .info-box:last-child {\n      margin-right: 0;\n    }\n    .info-box h3 {\n      color: #FF6B35;\n      margin: 0 0 10px 0;\n      font-size: 14px;\n      text-transform: uppercase;\n    }\n    table {\n      width: 100%;\n      border-collapse: collapse;\n      margin: 20px 0;\n    }\n    th {\n      background-color: #2C3E50;\n      color: white;\n      padding: 12px;\n      text-align: left;\n      font-weight: bold;\n    }\n    td {\n      padding: 10px 8px;\n      border-bottom: 1px solid #ddd;\n    }\n    .totals-table {\n      margin-top: 30px;\n      margin-left: auto;\n      width: 350px;\n    }\n    .totals-table td {\n      padding: 8px;\n      border: none;\n    }\n    .totals-table tr.grand-total {\n      background: #2C3E50;\n      color: white;\n      font-size: 16px;\n      font-weight: bold;\n    }\n    .totals-table tr.deposit {\n      background: #FFF3CD;\n      font-size: 14px;\n      font-weight: bold;\n    }\n    .payment-info {\n      background: #E8F5E9;\n      padding: 20px;\n      margin-top: 30px;\n      border-radius: 5px;\n      border-left: 4px solid #4CAF50;\n    }\n    .footer {\n      margin-top: 50px;\n      padding-top: 20px;\n      border-top: 2px solid #eee;\n      text-align: center;\n      color: #7f8c8d;\n      font-size: 9pt;\n    }\n    .important-note {\n      background: #FFF3CD;\n      border-left: 4px solid #FFC107;\n      padding: 15px;\n      margin: 20px 0;\n    }\n  </style>\n</head>\n<body>\n  <div class=\"invoice-header\">\n    <div class=\"company-info\">\n      <div class=\"logo\">🎪 EventGaraget</div>\n      <p><strong>EventGaraget AB</strong><br>\n      Eventvägen 123<br>\n      123 45 Stockholm<br>\n      Org.nr: 556123-4567<br>\n      Tel: 08-123 456 78<br>\n      Email: faktura@eventgaraget.se</p>\n    </div>\n    <div class=\"invoice-info\">\n      <div class=\"invoice-title\">FAKTURA</div>\n      <table style=\"width: auto; margin-left: auto;\">\n        <tr>\n          <td style=\"border: none; padding: 5px 10px;\"><strong>Fakturanr:</strong></td>\n          <td style=\"border: none; padding: 5px 10px;\">${invoice.invoice_number}</td>\n        </tr>\n        <tr>\n          <td style=\"border: none; padding: 5px 10px;\"><strong>Fakturadatum:</strong></td>\n          <td style=\"border: none; padding: 5px 10px;\">${new Date(invoice.invoice_date).toLocaleDateString('sv-SE')}</td>\n        </tr>\n        <tr>\n          <td style=\"border: none; padding: 5px 10px;\"><strong>Förfallodatum:</strong></td>\n          <td style=\"border: none; padding: 5px 10px;\">${new Date(invoice.due_date).toLocaleDateString('sv-SE')}</td>\n        </tr>\n        <tr>\n          <td style=\"border: none; padding: 5px 10px;\"><strong>Bokningsnr:</strong></td>\n          <td style=\"border: none; padding: 5px 10px;\">${invoice.booking_number}</td>\n        </tr>\n      </table>\n    </div>\n  </div>\n\n  <div class=\"info-section\">\n    <div class=\"info-box\">\n      <h3>📬 Fakturaadress</h3>\n      <p>\n        ${invoice.customer_company}<br>\n        ${invoice.customer_org_number ? `Org.nr: ${invoice.customer_org_number}<br>` : ''}\n        ${invoice.invoice_address.replace(/\\n/g, '<br>')}\n      </p>\n    </div>\n    <div class=\"info-box\">\n      <h3>📧 Kontaktperson</h3>\n      <p>\n        ${invoice.customer_name}<br>\n        ${invoice.customer_email}\n      </p>\n    </div>\n  </div>\n\n  <div class=\"important-note\">\n    <strong>⚠️ HANDPENNINGSFAKTURA</strong><br>\n    Detta är en faktura för handpenning (50% av totalt belopp). Resterande belopp betalas vid leverans.\n  </div>\n\n  <h3 style=\"color: #2C3E50; margin-top: 30px;\">Specifikation - Bokning ${invoice.booking_number}</h3>\n  <table>\n    <thead>\n      <tr>\n        <th>Beskrivning</th>\n        <th style=\"text-align: center;\">Antal</th>\n        <th style=\"text-align: right;\">Pris/st</th>\n        <th style=\"text-align: right;\">Totalt</th>\n      </tr>\n    </thead>\n    <tbody>\n      ${productsTableRows}\n    </tbody>\n  </table>\n\n  <table class=\"totals-table\">\n    <tr>\n      <td style=\"text-align: right;\"><strong>Delsumma (exkl. moms):</strong></td>\n      <td style=\"text-align: right;\">${invoice.subtotal.toFixed(2)} kr</td>\n    </tr>\n    <tr>\n      <td style=\"text-align: right; padding-top: 15px;\"><strong>HANDPENNING (50%):</strong></td>\n      <td style=\"text-align: right; padding-top: 15px;\">${invoice.deposit_amount.toFixed(2)} kr</td>\n    </tr>\n    <tr>\n      <td style=\"text-align: right;\">Moms 25%:</td>\n      <td style=\"text-align: right;\">${(invoice.deposit_amount * 0.25).toFixed(2)} kr</td>\n    </tr>\n    <tr class=\"deposit\">\n      <td style=\"text-align: right; padding: 12px;\">ATT BETALA NU (inkl. moms):</td>\n      <td style=\"text-align: right; padding: 12px;\">${invoice.deposit_with_vat.toFixed(2)} kr</td>\n    </tr>\n    <tr style=\"background: #f9f9f9; font-size: 12px;\">\n      <td style=\"text-align: right; padding: 8px; color: #666;\">Restbetalning vid leverans:</td>\n      <td style=\"text-align: right; padding: 8px; color: #666;\">${(invoice.remaining_amount * 1.25).toFixed(2)} kr</td>\n    </tr>\n    <tr class=\"grand-total\">\n      <td style=\"text-align: right; padding: 15px;\">TOTALT (hela bokningen):</td>\n      <td style=\"text-align: right; padding: 15px;\">${invoice.total_amount.toFixed(2)} kr</td>\n    </tr>\n  </table>\n\n  <div class=\"payment-info\">\n    <h3 style=\"margin-top: 0; color: #2E7D32;\">💳 Betalningsinformation</h3>\n    <table style=\"width: auto;\">\n      <tr>\n        <td style=\"border: none; padding: 5px 15px 5px 0;\"><strong>Betalningsmottagare:</strong></td>\n        <td style=\"border: none; padding: 5px 0;\">EventGaraget AB</td>\n      </tr>\n      <tr>\n        <td style=\"border: none; padding: 5px 15px 5px 0;\"><strong>Bankgiro:</strong></td>\n        <td style=\"border: none; padding: 5px 0;\">123-4567</td>\n      </tr>\n      <tr>\n        <td style=\"border: none; padding: 5px 15px 5px 0;\"><strong>Swish:</strong></td>\n        <td style=\"border: none; padding: 5px 0;\">123 456 7890</td>\n      </tr>\n      <tr>\n        <td style=\"border: none; padding: 5px 15px 5px 0;\"><strong>OCR/Ref:</strong></td>\n        <td style=\"border: none; padding: 5px 0;\">${invoice.invoice_number}</td>\n      </tr>\n      <tr>\n        <td style=\"border: none; padding: 5px 15px 5px 0;\"><strong>Betalningsvillkor:</strong></td>\n        <td style=\"border: none; padding: 5px 0;\">${invoice.payment_terms}</td>\n      </tr>\n      <tr>\n        <td style=\"border: none; padding: 5px 15px 5px 0;\"><strong>Förfallodatum:</strong></td>\n        <td style=\"border: none; padding: 5px 0;\"><strong style=\"color: #D32F2F;\">${new Date(invoice.due_date).toLocaleDateString('sv-SE')}</strong></td>\n      </tr>\n    </table>\n  </div>\n\n  <div style=\"margin-top: 30px; padding: 15px; background: #E3F2FD; border-radius: 5px;\">\n    <h4 style=\"margin-top: 0;\">📋 Viktig information</h4>\n    <ul style=\"margin: 0;\">\n      <li>Leveransdatum: <strong>${new Date(booking.delivery_date).toLocaleDateString('sv-SE')}</strong></li>\n      <li>Leveransadress: ${booking.delivery_address}</li>\n      <li>Restbetalning (${(invoice.remaining_amount * 1.25).toFixed(2)} kr) betalas vid leverans via Swish eller faktura</li>\n      <li>Vid frågor om fakturan, kontakta faktura@eventgaraget.se eller ring 08-123 456 78</li>\n    </ul>\n  </div>\n\n  <div class=\"footer\">\n    <p><strong>EventGaraget AB</strong> | Org.nr: 556123-4567 | Bankgiro: 123-4567<br>\n    Eventvägen 123, 123 45 Stockholm | Tel: 08-123 456 78 | www.eventgaraget.se</p>\n    <p style=\"font-size: 8pt; margin-top: 10px;\">Denna faktura är genererad automatiskt och godkänns utan signatur.<br>\n    Vid dröjsmål debiteras påminnelseavgift och dröjsmålsränta enligt lag.</p>\n  </div>\n</body>\n</html>\n`;\n\nreturn {\n  invoice_html: invoiceHtml,\n  invoice_number: invoice.invoice_number,\n  customer_email: invoice.customer_email,\n  customer_name: invoice.customer_name,\n  amount_due: invoice.deposit_with_vat\n};"
+      },
+      "id": "generate-invoice-pdf-003",
+      "name": "📄 Generate Invoice HTML/PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 450],
+      "notes": "Genererar faktura som HTML (kan konverteras till PDF)"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json.customer_email}}",
+        "subject": "=💰 Faktura {{$json.invoice_number}} - Handpenning EventGaraget",
+        "emailType": "html",
+        "message": "={{$json.invoice_html}}",
+        "options": {}
+      },
+      "id": "send-invoice-email-004",
+      "name": "📧 Send Invoice to Customer",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [1900, 450],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      },
+      "notes": "Skickar fakturan till kund"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Notify internal team about sent invoice\nconst invoice = $input.first().json;\n\nreturn {\n  to: 'admin@striky.se', // Internal notification\n  subject: `✅ Faktura ${invoice.invoice_number} skickad till ${invoice.customer_name}`,\n  body: `Faktura för handpenning har skickats!\n\nFakturanr: ${invoice.invoice_number}\nKund: ${invoice.customer_name}\nBelopp: ${invoice.amount_due.toFixed(2)} kr\nEmail: ${invoice.customer_email}\n\nTänk på att följa upp betalningen!`\n};"
+      },
+      "id": "notify-internal-005",
+      "name": "🔔 Notify Internal Team",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2100, 450],
+      "notes": "Notifierar internt team om skickad faktura"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "emailType": "text",
+        "message": "={{$json.body}}",
+        "options": {}
+      },
+      "id": "send-internal-notification-006",
+      "name": "📬 Send Internal Notification",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [2300, 450],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Get Booking Products": {
+      "main": [[
+        {"node": "💰 Prepare Invoice Data", "type": "main", "index": 0},
+        {"node": "Format Confirmation Emails", "type": "main", "index": 0}
+      ]]
+    },
+    "💰 Prepare Invoice Data": {
+      "main": [[
+        {"node": "📝 Create Invoice Record (Supabase)", "type": "main", "index": 0}
+      ]]
+    },
+    "📝 Create Invoice Record (Supabase)": {
+      "main": [[
+        {"node": "📄 Generate Invoice HTML/PDF", "type": "main", "index": 0}
+      ]]
+    },
+    "📄 Generate Invoice HTML/PDF": {
+      "main": [[
+        {"node": "📧 Send Invoice to Customer", "type": "main", "index": 0}
+      ]]
+    },
+    "📧 Send Invoice to Customer": {
+      "main": [[
+        {"node": "🔔 Notify Internal Team", "type": "main", "index": 0}
+      ]]
+    },
+    "🔔 Notify Internal Team": {
+      "main": [[
+        {"node": "📬 Send Internal Notification", "type": "main", "index": 0}
+      ]]
+    }
+  },
+  "REQUIRED_SUPABASE_TABLE": {
+    "table_name": "invoices",
+    "sql": "CREATE TABLE IF NOT EXISTS invoices (\n  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n  invoice_number VARCHAR(50) UNIQUE NOT NULL,\n  booking_id UUID REFERENCES bookings(id),\n  customer_id UUID REFERENCES customers(id),\n  invoice_date DATE NOT NULL,\n  due_date DATE NOT NULL,\n  amount DECIMAL(10, 2) NOT NULL,\n  vat_amount DECIMAL(10, 2) NOT NULL,\n  total_amount DECIMAL(10, 2) NOT NULL,\n  status VARCHAR(50) DEFAULT 'pending', -- pending, paid, overdue, cancelled\n  type VARCHAR(50) DEFAULT 'deposit', -- deposit, final, full\n  payment_terms VARCHAR(100),\n  payment_date DATE,\n  payment_method VARCHAR(50),\n  notes TEXT,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n);\n\nCREATE INDEX idx_invoices_booking ON invoices(booking_id);\nCREATE INDEX idx_invoices_customer ON invoices(customer_id);\nCREATE INDEX idx_invoices_status ON invoices(status);\nCREATE INDEX idx_invoices_due_date ON invoices(due_date);\n\nALTER TABLE invoices ENABLE ROW LEVEL SECURITY;\nCREATE POLICY \"Service role full access invoices\" ON invoices FOR ALL TO service_role USING (true);"
+  }
+}
+

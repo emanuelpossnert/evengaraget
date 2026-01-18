@@ -1,0 +1,193 @@
+{
+  "name": "03-Escalation Handler",
+  "description": "Handles low-confidence requests, escalates to humans, and learns from responses",
+  "version": 1.0,
+  "active": true,
+  "nodes": [
+    {
+      "displayName": "Webhook - Escalation Request",
+      "name": "webhookEscalation",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "parameters": {
+        "path": "escalation-webhook",
+        "httpMethod": "POST",
+        "authentication": "none"
+      }
+    },
+    {
+      "displayName": "Validate Escalation Data",
+      "name": "validateEscalationData",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [300, 0],
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nif (!data.email_data || !data.classification) {\n  throw new Error('Missing email_data or classification');\n}\n\nconst reason = data.confidence < 0.6 \n  ? 'Low AI confidence' \n  : data.classification === 'complaint' \n  ? 'Customer complaint'\n  : 'Requires manual review';\n\nreturn [{\n  json: {\n    email_data: data.email_data,\n    classification: data.classification,\n    confidence: data.confidence || 0,\n    reason: reason,\n    created_at: new Date().toISOString()\n  }\n}];"
+      }
+    },
+    {
+      "displayName": "Create Escalation in Supabase",
+      "name": "createEscalation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [600, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "https://njiagzdssxoxycxraubf.supabase.co/rest/v1/escalations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "headers": {
+          "Content-Type": "application/json",
+          "Prefer": "return=representation"
+        },
+        "body": {
+          "parameterizedBody": "={{{\n  customer_email: $json.email_data.email_address,\n  subject: $json.email_data.subject,\n  message_content: $json.email_data.body,\n  reason: $json.reason,\n  ai_confidence: $json.confidence,\n  status: 'pending',\n  created_at: new Date().toISOString(),\n  escalation_type: $json.classification\n}}}",
+          "contentType": "application/json"
+        }
+      },
+      "credentials": {
+        "supabaseApi": "YOUR_SUPABASE_CREDENTIAL_ID"
+      }
+    },
+    {
+      "displayName": "Save Email Thread Reference",
+      "name": "saveEmailReference",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "https://njiagzdssxoxycxraubf.supabase.co/rest/v1/conversations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "headers": {
+          "Content-Type": "application/json",
+          "Prefer": "return=representation"
+        },
+        "body": {
+          "parameterizedBody": "={{{\n  customer_email: $json.email_data.email_address,\n  subject: $json.email_data.subject,\n  status: 'escalated',\n  thread_id: $json.email_data.thread_id,\n  created_at: new Date().toISOString(),\n  last_message_at: new Date().toISOString()\n}}}",
+          "contentType": "application/json"
+        }
+      },
+      "credentials": {
+        "supabaseApi": "YOUR_SUPABASE_CREDENTIAL_ID"
+      }
+    },
+    {
+      "displayName": "Generate Staff Summary",
+      "name": "generateStaffSummary",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [1200, 0],
+      "parameters": {
+        "modelId": "gpt-3.5-turbo",
+        "messages": {
+          "values": [
+            {
+              "content": "Du är EventGaragets support-assistant. Sammanfatta denna kundemail för att hjälpa personalen att hantera den.\n\nGe en kort sammanfattning (3-4 punkter) av:\n1. Vad kunden frågar om\n2. Vilka produkter som är inblandade\n3. Tidsram/brådska\n4. Rekommenderad åtgärd\n\nFormat: Ren text, inga markdown.",
+              "role": "system"
+            },
+            {
+              "content": "=Från: {{ $json.email_data.from }}\nÄmne: {{ $json.email_data.subject }}\n\nMeddelande:\n{{ $json.email_data.body }}\n\nAI-klassificering: {{ $json.classification }}\nAI-säkerhet: {{ $json.confidence * 100 }}%\nAnskäl: {{ $json.reason }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 400,
+          "temperature": 0.5
+        }
+      },
+      "credentials": {
+        "openAiApi": "YOUR_OPENAI_CREDENTIAL_ID"
+      }
+    },
+    {
+      "displayName": "Send Staff Notification Email",
+      "name": "sendStaffNotification",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [1500, 0],
+      "parameters": {
+        "sendTo": "support@eventgaraget.se",
+        "subject": "🚨 ESCALATION: {{ $json.email_data.subject }}",
+        "message": "=<h3>Customer Escalation</h3>\n<p><strong>From:</strong> {{ $json.email_data.from }}</p>\n<p><strong>Reason:</strong> {{ $json.reason }}</p>\n<p><strong>AI Confidence:</strong> {{ $json.confidence * 100 }}%</p>\n<p><strong>Classification:</strong> {{ $json.classification }}</p>\n<h4>Staff Summary:</h4>\n<pre>{{ $('generateStaffSummary').first().json.content }}</pre>\n<h4>Original Message:</h4>\n<p>{{ $json.email_data.body }}</p>\n<p><a href=\"https://supabase.com\" style=\"background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;\">👤 View in CRM Dashboard</a></p>"
+      },
+      "credentials": {
+        "gmailOAuth2": "YOUR_GMAIL_CREDENTIAL_ID"
+      }
+    },
+    {
+      "displayName": "Send Customer Acknowledgement",
+      "name": "sendCustomerAcknowledgement",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [1500, 150],
+      "parameters": {
+        "sendTo": "={{ $json.email_data.email_address }}",
+        "subject": "=Re: {{ $json.email_data.subject }}",
+        "message": "=<p>Tack för din email!</p>\n<p>Vi har mottagit din förfrågan och den är nu under personlig behandling av vårt supportteam.</p>\n<p>Vi återkommer till dig så snart som möjligt, vanligtvis inom 2-4 timmar.</p>\n<p>Mvh EventGaraget Team</p>"
+      },
+      "credentials": {
+        "gmailOAuth2": "YOUR_GMAIL_CREDENTIAL_ID"
+      }
+    },
+    {
+      "displayName": "Log Escalation Analytics",
+      "name": "logEscalationAnalytics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1800, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "https://njiagzdssxoxycxraubf.supabase.co/rest/v1/ai_analytics",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "body": {
+          "parameterizedBody": "={{{\n  event_type: 'escalation_created',\n  classification: $json.classification,\n  ai_confidence: $json.confidence,\n  reason: $json.reason,\n  customer_email: $json.email_data.email_address,\n  timestamp: new Date().toISOString()\n}}}",
+          "contentType": "application/json"
+        }
+      },
+      "credentials": {
+        "supabaseApi": "YOUR_SUPABASE_CREDENTIAL_ID"
+      }
+    },
+    {
+      "displayName": "Webhook Response - Success",
+      "name": "webhookResponse",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2100, 0],
+      "parameters": {
+        "responseCode": 200,
+        "responseData": "={{{\n  status: 'escalation_created',\n  escalation_id: $('createEscalation').first().json[0]?.id,\n  customer_notified: true\n}}}"
+      }
+    }
+  ],
+  "connections": {
+    "webhookEscalation": {
+      "main": [[{"node": "validateEscalationData", "type": "main", "index": 0}]]
+    },
+    "validateEscalationData": {
+      "main": [[{"node": "createEscalation", "type": "main", "index": 0}]]
+    },
+    "createEscalation": {
+      "main": [[{"node": "saveEmailReference", "type": "main", "index": 0}, {"node": "generateStaffSummary", "type": "main", "index": 0}]]
+    },
+    "saveEmailReference": {
+      "main": [[{"node": "sendStaffNotification", "type": "main", "index": 0}]]
+    },
+    "generateStaffSummary": {
+      "main": [[{"node": "sendStaffNotification", "type": "main", "index": 0}]]
+    },
+    "sendStaffNotification": {
+      "main": [[{"node": "sendCustomerAcknowledgement", "type": "main", "index": 0}]]
+    },
+    "sendCustomerAcknowledgement": {
+      "main": [[{"node": "logEscalationAnalytics", "type": "main", "index": 0}]]
+    },
+    "logEscalationAnalytics": {
+      "main": [[{"node": "webhookResponse", "type": "main", "index": 0}]]
+    }
+  }
+}

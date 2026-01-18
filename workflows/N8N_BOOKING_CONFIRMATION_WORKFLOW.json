@@ -1,0 +1,168 @@
+{
+  "name": "EventGaraget - Booking Confirmation Email",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "booking-confirmation",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "bookings",
+        "columns": "id,booking_number,event_date,location,total_amount,products_requested",
+        "filters": "id=$1",
+        "filterValues": "$json.record.booking_id"
+      },
+      "name": "Get Booking Details",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": "supabase"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "customers",
+        "columns": "email,name,phone",
+        "filters": "id=$1",
+        "filterValues": "$json.record.booking_id"
+      },
+      "name": "Get Customer Details",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        500,
+        450
+      ],
+      "credentials": {
+        "supabaseApi": "supabase"
+      }
+    },
+    {
+      "parameters": {
+        "code": "// Get data from previous nodes\nconst booking = $input.itemMatching(0).json[0];\nconst customer = $input.itemMatching(1).json[0];\nconst token = $json.record.token;\nconst appUrl = process.env.BOOKING_APP_URL || 'https://your-booking-app.com';\n\n// Build booking link\nconst bookingLink = `${appUrl}/booking/${token}`;\n\n// Parse products if stored as JSON string\nlet products = [];\ntry {\n  if (typeof booking.products_requested === 'string') {\n    products = JSON.parse(booking.products_requested);\n  } else {\n    products = booking.products_requested || [];\n  }\n} catch (e) {\n  console.log('Could not parse products');\n}\n\nconst productList = products\n  .map(p => `<li>${p.name || p} ${p.wrapping_requested ? '🎨 (med folierung)' : ''}</li>`)\n  .join('');\n\nreturn [{\n  json: {\n    to: customer.email,\n    subject: `Bokningsbekräftelse - ${booking.booking_number}`,\n    html: `\n      <!DOCTYPE html>\n      <html>\n        <head>\n          <meta charset=\"UTF-8\">\n          <style>\n            body { font-family: Arial, sans-serif; color: #333; }\n            .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }\n            .header h1 { margin: 0; font-size: 28px; }\n            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }\n            .section { margin: 20px 0; }\n            .details { background: white; padding: 15px; border-left: 4px solid #667eea; margin: 15px 0; }\n            .detail-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 10px 0; }\n            .detail-box { background: white; padding: 12px; border-left: 4px solid #667eea; }\n            .detail-label { font-weight: bold; color: #667eea; font-size: 12px; text-transform: uppercase; }\n            .detail-value { font-size: 16px; margin-top: 5px; color: #333; }\n            .product-list { list-style: none; padding: 0; margin: 10px 0; }\n            .product-list li { padding: 8px 0; border-bottom: 1px solid #eee; }\n            .button-container { text-align: center; margin: 30px 0; }\n            .button {\n              display: inline-block;\n              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n              color: white;\n              padding: 14px 32px;\n              border-radius: 8px;\n              text-decoration: none;\n              font-weight: bold;\n              font-size: 16px;\n            }\n            .button:hover { opacity: 0.9; }\n            .info-box {\n              background: #e3f2fd;\n              border-left: 4px solid #2196F3;\n              padding: 15px;\n              margin: 20px 0;\n              border-radius: 4px;\n            }\n            .footer {\n              text-align: center;\n              color: #999;\n              font-size: 12px;\n              margin-top: 30px;\n              border-top: 1px solid #ddd;\n              padding-top: 15px;\n            }\n          </style>\n        </head>\n        <body>\n          <div class=\"container\">\n            <div class=\"header\">\n              <h1>🎉 Bokningsbekräftelse</h1>\n              <p>Din bokning är nu bekräftad!</p>\n            </div>\n            \n            <div class=\"content\">\n              <div class=\"section\">\n                <p>Hej ${customer.name || 'värd'},</p>\n                <p>Tack för din bokning! Vi är glada att få jobba med dig på EventGaraget.</p>\n              </div>\n              \n              <div class=\"detail-row\">\n                <div class=\"detail-box\">\n                  <div class=\"detail-label\">📋 Bokningsnummer</div>\n                  <div class=\"detail-value\">${booking.booking_number}</div>\n                </div>\n                <div class=\"detail-box\">\n                  <div class=\"detail-label\">📅 Event-datum</div>\n                  <div class=\"detail-value\">${new Date(booking.event_date).toLocaleDateString('sv-SE')}</div>\n                </div>\n              </div>\n              \n              <div class=\"detail-row\">\n                <div class=\"detail-box\">\n                  <div class=\"detail-label\">📍 Plats</div>\n                  <div class=\"detail-value\">${booking.location}</div>\n                </div>\n                <div class=\"detail-box\">\n                  <div class=\"detail-label\">💰 Totalt belopp</div>\n                  <div class=\"detail-value\">${booking.total_amount?.toLocaleString('sv-SE')} SEK</div>\n                </div>\n              </div>\n              \n              <div class=\"details\">\n                <strong>📦 Dina produkter:</strong>\n                <ul class=\"product-list\">\n                  ${productList || '<li>Se bokningsdetaljerna för produktlista</li>'}\n                </ul>\n              </div>\n              \n              <div class=\"info-box\">\n                <strong>🎨 NÄSTA STEG - Ladda upp dina foliering-designs</strong>\n                <p>Du behöver ladda upp dina foliering-designs så att vi kan börja producera. Klicka på knappen nedan för att komma till bokningsdetaljerna.</p>\n              </div>\n              \n              <div class=\"button-container\">\n                <a href=\"${bookingLink}\" class=\"button\">Se bokningsdetaljer & Ladda upp designs</a>\n              </div>\n              \n              <div class=\"section\">\n                <p><strong>Viktig information:</strong></p>\n                <ul>\n                  <li>Din personliga länk ovan är unik och giltig i 7 dagar</li>\n                  <li>Ladda upp designen så snart som möjligt</li>\n                  <li>Vi behöver godkänd design senast 3 dagar före eventet</li>\n                  <li>Kontakta oss på info@eventgaraget.se om du har frågor</li>\n                  <li>Telefon: ${customer.phone || 'XXX-XXX XXX'}</li>\n                </ul>\n              </div>\n              \n              <div class=\"footer\">\n                <p>© EventGaraget 2024 - Vi gör events enkla!</p>\n                <p>Denna email skickades till: ${customer.email}</p>\n              </div>\n            </div>\n          </div>\n        </body>\n      </html>\n    `,\n    booking_id: booking.id,\n    token: token\n  }\n}];"
+      },
+      "name": "Format Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        750,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "message": "={{$json.html}}"
+      },
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1000,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2": "gmail_account"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "webhook_logs",
+        "data": "{\n  \"event_type\": \"booking_confirmation_sent\",\n  \"table_name\": \"booking_confirmations\",\n  \"booking_id\": \"$json.booking_id\",\n  \"payload\": \"$json.subject\",\n  \"status\": \"success\"\n}"
+      },
+      "name": "Log Webhook Event",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": "supabase"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Booking Details",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Customer Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Booking Details": {
+      "main": [
+        [
+          {
+            "node": "Format Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Customer Details": {
+      "main": [
+        [
+          {
+            "node": "Format Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Log Webhook Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

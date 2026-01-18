@@ -1,0 +1,260 @@
+{
+  "name": "Nya Noder - Tillgänglighet & Foliering",
+  "description": "Lägg till dessa noder INNAN 'Prepare Booking Data1' i ditt workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Extract products and dates from AI response\nconst parseAiItems = $('Parse AI Response1').all();\nconst bookingDetails = parseAiItems[0].json.booking_details;\nconst productsRequested = bookingDetails.products_requested || [];\nconst startDate = bookingDetails.start_date;\nconst endDate = bookingDetails.end_date;\n\nif (!startDate || !endDate || productsRequested.length === 0) {\n  return {\n    availability_checks: [],\n    all_available: true,\n    message: 'No availability check needed (missing products or dates)'\n  };\n}\n\n// Create requests for each product\nconst availabilityRequests = productsRequested.map((product, index) => ({\n  json: {\n    product_name: typeof product === 'string' ? product : product.name,\n    start_date: startDate,\n    end_date: endDate,\n    quantity_needed: typeof product === 'object' && product.quantity ? product.quantity : 1,\n    check_index: index\n  }\n}));\n\nreturn availabilityRequests;"
+      },
+      "id": "availability-prepare-001",
+      "name": "📅 Prepare Availability Checks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-750, -400],
+      "notes": "Förbereder tillgänglighetskontroll för alla produkter"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/rpc/check_product_availability",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_product_name\": \"{{$json.product_name}}\",\n  \"p_start_date\": \"{{$json.start_date}}\",\n  \"p_end_date\": \"{{$json.end_date}}\",\n  \"p_quantity_needed\": {{$json.quantity_needed}}\n}",
+        "options": {}
+      },
+      "id": "availability-check-002",
+      "name": "✅ Check Availability (Supabase RPC)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [-550, -400],
+      "notes": "Kollar om produkter är lediga via Supabase-funktion"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate all availability results\nconst allChecks = $input.all();\nconst unavailableProducts = [];\nconst alternativeNeeded = [];\n\nfor (const check of allChecks) {\n  const result = check.json[0]; // Supabase RPC returns array\n  \n  if (!result.is_available) {\n    unavailableProducts.push({\n      product: check.json.product_name || 'Unknown product',\n      requested: result.quantity_requested || 1,\n      available: result.quantity_available || 0,\n      conflicting_dates: result.conflicting_dates || []\n    });\n    \n    alternativeNeeded.push(check.json.product_name);\n  }\n}\n\nconst allAvailable = unavailableProducts.length === 0;\n\nreturn {\n  all_available: allAvailable,\n  unavailable_products: unavailableProducts,\n  availability_message: allAvailable \n    ? '✅ Alla produkter är tillgängliga för dina önskade datum!'\n    : `⚠️ Följande produkter är tyvärr inte tillgängliga för valda datum: ${alternativeNeeded.join(', ')}. Föreslår alternativa datum...`,\n  checked_at: new Date().toISOString()\n};"
+      },
+      "id": "availability-aggregate-003",
+      "name": "📊 Aggregate Availability Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-350, -400],
+      "notes": "Sammanställer alla tillgänglighetskontroller"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "output": 0,
+              "conditions": {
+                "boolean": [
+                  {
+                    "value1": "={{$json.all_available}}",
+                    "operation": "false"
+                  }
+                ]
+              }
+            },
+            {
+              "output": 1,
+              "conditions": {
+                "boolean": [
+                  {
+                    "value1": "={{$json.all_available}}",
+                    "operation": "true"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "fallbackOutput": 1
+      },
+      "id": "availability-router-004",
+      "name": "🔀 Router - Availability",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [-150, -400],
+      "notes": "Output 0 = Inte tillgängligt (föreslå alternativ), Output 1 = Tillgängligt (fortsätt bokning)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/rpc/suggest_alternative_dates",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_product_name\": \"{{$('Parse AI Response1').all()[0].json.booking_details.products_requested[0]}}\",\n  \"p_preferred_date\": \"{{$('Parse AI Response1').all()[0].json.booking_details.start_date}}\",\n  \"p_duration_days\": 3,\n  \"p_quantity_needed\": 1,\n  \"p_days_to_search\": 30\n}",
+        "options": {}
+      },
+      "id": "suggest-alternatives-005",
+      "name": "📆 Suggest Alternative Dates",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [50, -300],
+      "notes": "Föreslår alternativa datum om produkten är upptagen"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format alternative dates for email\nconst alternatives = $input.all();\nconst parseAiItems = $('Parse AI Response1').all();\nconst customerInfo = parseAiItems[0].json.customer_info;\nconst unavailableProducts = $('📊 Aggregate Availability Results').all()[0].json.unavailable_products;\n\nlet alternativesText = '';\nif (alternatives.length > 0 && alternatives[0].json.length > 0) {\n  const firstThree = alternatives[0].json.slice(0, 3);\n  alternativesText = firstThree.map((alt, idx) => \n    `${idx + 1}. ${alt.suggested_start_date} till ${alt.suggested_end_date} (${alt.days_from_preferred} dagar från önskat datum)`\n  ).join('\\n');\n}\n\nconst emailBody = `Hej ${customerInfo.name || 'där'}!\n\nTack för din förfrågan! 🎉\n\nTyvärr är följande produkter redan bokade för dina önskade datum:\n${unavailableProducts.map(p => `- ${p.product} (${p.available} av ${p.requested} tillgängliga)`).join('\\n')}\n\n📅 Vi kan erbjuda följande alternativa datum:\n${alternativesText}\n\nÄr något av dessa datum intressant? Svara på detta mail så fixar vi det direkt!\n\nAlternativt, kontakta oss på 08-123 456 78 så hjälper vi dig.\n\nMed vänliga hälsningar,\nEventGaraget-teamet\n🎪 Vi gör ditt event oförglömligt!`;\n\nreturn {\n  to: customerInfo.email,\n  subject: 'Alternativa datum - EventGaraget',\n  body: emailBody\n};"
+      },
+      "id": "format-alternative-email-006",
+      "name": "📧 Format Alternative Dates Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, -300],
+      "notes": "Skapar email med alternativa datum"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "emailType": "text",
+        "message": "={{$json.body}}",
+        "options": {}
+      },
+      "id": "send-alternative-email-007",
+      "name": "✉️ Send Alternative Dates Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [450, -300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      },
+      "notes": "Skickar email med alternativa datum till kund"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if customer wants wrapping\nconst parseAiItems = $('Parse AI Response1').all();\nconst aiResponse = parseAiItems[0].json;\nconst wantsWrapping = aiResponse.wants_wrapping || false;\nconst wrappingProducts = aiResponse.wrapping_products || [];\n\nif (wantsWrapping && wrappingProducts.length > 0) {\n  return {\n    send_wrapping_guide: true,\n    wrapping_products: wrappingProducts,\n    customer_email: aiResponse.customer_info.email,\n    customer_name: aiResponse.customer_info.name\n  };\n}\n\nreturn {\n  send_wrapping_guide: false\n};"
+      },
+      "id": "check-wrapping-008",
+      "name": "🎨 Check If Wrapping Requested",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [50, -500],
+      "notes": "Kollar om kunden vill ha foliering"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "output": 0,
+              "conditions": {
+                "boolean": [
+                  {
+                    "value1": "={{$json.send_wrapping_guide}}",
+                    "operation": "true"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "fallbackOutput": -1
+      },
+      "id": "wrapping-router-009",
+      "name": "🔀 Router - Wrapping",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [250, -500],
+      "notes": "Output 0 = Skicka folierings-guide"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json.customer_email}}",
+        "subject": "🎨 Guide för Folieringsmaterial - EventGaraget",
+        "emailType": "html",
+        "message": "={{$('Read Wrapping Guide Template').first().data}}",
+        "appendAttribution": false,
+        "options": {}
+      },
+      "id": "send-wrapping-guide-010",
+      "name": "📤 Send Wrapping Guide PDF",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [450, -500],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      },
+      "notes": "Skickar folieringsgui​de till kund"
+    },
+    {
+      "parameters": {
+        "filePath": "/Users/emanuelpossnert/Documents/Dev projects/Eventgaraget/templates/wrapping-material-guide.html",
+        "options": {}
+      },
+      "id": "read-wrapping-template-011",
+      "name": "📄 Read Wrapping Guide Template",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [350, -600],
+      "notes": "Läser HTML-mallen för foliering"
+    }
+  ],
+  "connections": {
+    "🤖 AI Agent - Quote Generator1": {
+      "main": [[
+        {"node": "📅 Prepare Availability Checks", "type": "main", "index": 0},
+        {"node": "🎨 Check If Wrapping Requested", "type": "main", "index": 0}
+      ]]
+    },
+    "📅 Prepare Availability Checks": {
+      "main": [[
+        {"node": "✅ Check Availability (Supabase RPC)", "type": "main", "index": 0}
+      ]]
+    },
+    "✅ Check Availability (Supabase RPC)": {
+      "main": [[
+        {"node": "📊 Aggregate Availability Results", "type": "main", "index": 0}
+      ]]
+    },
+    "📊 Aggregate Availability Results": {
+      "main": [[
+        {"node": "🔀 Router - Availability", "type": "main", "index": 0}
+      ]]
+    },
+    "🔀 Router - Availability": {
+      "main": [
+        [{"node": "📆 Suggest Alternative Dates", "type": "main", "index": 0}],
+        [{"node": "Prepare Booking Data1", "type": "main", "index": 0}]
+      ]
+    },
+    "📆 Suggest Alternative Dates": {
+      "main": [[
+        {"node": "📧 Format Alternative Dates Email", "type": "main", "index": 0}
+      ]]
+    },
+    "📧 Format Alternative Dates Email": {
+      "main": [[
+        {"node": "✉️ Send Alternative Dates Email", "type": "main", "index": 0}
+      ]]
+    },
+    "🎨 Check If Wrapping Requested": {
+      "main": [[
+        {"node": "🔀 Router - Wrapping", "type": "main", "index": 0}
+      ]]
+    },
+    "🔀 Router - Wrapping": {
+      "main": [[
+        {"node": "📄 Read Wrapping Guide Template", "type": "main", "index": 0}
+      ]]
+    },
+    "📄 Read Wrapping Guide Template": {
+      "main": [[
+        {"node": "📤 Send Wrapping Guide PDF", "type": "main", "index": 0}
+      ]]
+    }
+  },
+  "INSTALLATION_INSTRUCTIONS": "Se HOW_TO_ADD_AVAILABILITY_NODES.md för steg-för-steg instruktioner"
+}
+

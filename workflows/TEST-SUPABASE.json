@@ -1,0 +1,41 @@
+{
+  "name": "TEST Supabase Connection",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "start1"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "customers",
+        "returnAll": true
+      },
+      "name": "List All Customers",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "id": "test1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [[{"node": "List All Customers", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "settings": {},
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0
+}

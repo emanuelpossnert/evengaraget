@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Folieringsmaterial - EventGaraget</title>
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      background: #f9f9f9;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .header {
+      text-align: center;
+      border-bottom: 3px solid #FF6B35;
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+    }
+    .logo {
+      font-size: 32px;
+      font-weight: bold;
+      color: #FF6B35;
+    }
+    h1 {
+      color: #2C3E50;
+      font-size: 28px;
+      margin: 20px 0 10px;
+    }
+    h2 {
+      color: #FF6B35;
+      font-size: 22px;
+      margin-top: 30px;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 10px;
+    }
+    h3 {
+      color: #34495E;
+      font-size: 18px;
+      margin-top: 20px;
+    }
+    .checklist {
+      background: #E8F5E9;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    .checklist-item {
+      margin: 10px 0;
+      padding: 10px;
+      background: white;
+      border-left: 4px solid #4CAF50;
+      display: flex;
+      align-items: center;
+    }
+    .checklist-item::before {
+      content: "✓";
+      color: #4CAF50;
+      font-weight: bold;
+      font-size: 20px;
+      margin-right: 15px;
+    }
+    .warning {
+      background: #FFF3E0;
+      border-left: 4px solid #FF9800;
+      padding: 15px;
+      margin: 20px 0;
+    }
+    .info {
+      background: #E3F2FD;
+      border-left: 4px solid #2196F3;
+      padding: 15px;
+      margin: 20px 0;
+    }
+    .example-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 20px 0;
+    }
+    .example-box {
+      border: 2px dashed #ccc;
+      padding: 20px;
+      text-align: center;
+      border-radius: 8px;
+      background: #fafafa;
+    }
+    .good {
+      border-color: #4CAF50;
+      background: #F1F8F4;
+    }
+    .bad {
+      border-color: #F44336;
+      background: #FFEBEE;
+    }
+    .contact-box {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      border-radius: 10px;
+      margin-top: 40px;
+      text-align: center;
+    }
+    .contact-box a {
+      color: white;
+      font-weight: bold;
+      text-decoration: underline;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background-color: #FF6B35;
+      color: white;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 2px solid #eee;
+      color: #777;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">🎨 EventGaraget</div>
+      <h1>Guide för Folieringsmaterial</h1>
+      <p><strong>Tack för din beställning av foliering!</strong></p>
+    </div>
+
+    <div class="info">
+      <strong>📧 Om denna guide:</strong><br>
+      För att vi ska kunna skapa en perfekt foliering på din utrustning behöver vi rätt material från dig. Följ denna guide för bästa resultat!
+    </div>
+
+    <h2>📋 Checklista - Material att skicka in</h2>
+    
+    <div class="checklist">
+      <div class="checklist-item">
+        <strong>Logotyp i högupplöst format</strong><br>
+        <small>Filformat: .AI, .EPS, .PDF eller .PNG (minst 300 DPI)</small>
+      </div>
+      <div class="checklist-item">
+        <strong>Företagsprofil / Brandingriktlinjer</strong><br>
+        <small>Om tillgängligt: Färgkoder (PMS/CMYK/RGB), typsnitt, riktlinjer</small>
+      </div>
+      <div class="checklist-item">
+        <strong>Önskat designutkast (valfritt)</strong><br>
+        <small>Om du har specifika idéer, skicka skisser eller referensbilder</small>
+      </div>
+      <div class="checklist-item">
+        <strong>Kontaktinformation</strong><br>
+        <small>Namn, företag, email, telefon</small>
+      </div>
+      <div class="checklist-item">
+        <strong>Önskad färgpalett</strong><br>
+        <small>Om ni har specifika färger ni vill använda</small>
+      </div>
+    </div>
+
+    <h2>🎨 Tekniska Specifikationer</h2>
+
+    <table>
+      <tr>
+        <th>Material</th>
+        <th>Krav</th>
+      </tr>
+      <tr>
+        <td><strong>Logotyp (vektor)</strong></td>
+        <td>.AI, .EPS, .PDF eller .SVG</td>
+      </tr>
+      <tr>
+        <td><strong>Logotyp (raster)</strong></td>
+        <td>.PNG eller .TIFF, minst 300 DPI, minst 3000x3000px</td>
+      </tr>
+      <tr>
+        <td><strong>Färgkoder</strong></td>
+        <td>PMS, CMYK eller RGB (vi konverterar till rätt format)</td>
+      </tr>
+      <tr>
+        <td><strong>Typsnitt</strong></td>
+        <td>Om ni vill ha text: Ange typsnitt eller inkludera i vektorfil</td>
+      </tr>
+      <tr>
+        <td><strong>Bilder/Foton</strong></td>
+        <td>Minst 300 DPI, högsta möjliga upplösning</td>
+      </tr>
+    </table>
+
+    <h2>✅ Bra exempel vs ❌ Dåliga exempel</h2>
+
+    <div class="example-grid">
+      <div class="example-box good">
+        <h3 style="color: #4CAF50;">✅ BRA</h3>
+        <ul style="text-align: left;">
+          <li>Vektorfiler (.AI, .EPS)</li>
+          <li>Högupplösta PNG (300 DPI+)</li>
+          <li>Tydliga färgkoder</li>
+          <li>Separata lager i filen</li>
+        </ul>
+      </div>
+      <div class="example-box bad">
+        <h3 style="color: #F44336;">❌ DÅLIGT</h3>
+        <ul style="text-align: left;">
+          <li>Logga från hemsida (låg upplösning)</li>
+          <li>JPEG-filer (komprimerade)</li>
+          <li>Okända färgkoder</li>
+          <li>Text som rasterbilder</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="warning">
+      <strong>⚠️ VIKTIGT:</strong><br>
+      Skicka INTE logotyper som är kopierade från hemsidor eller sociala medier. Dessa har ofta för låg upplösning och blir suddiga när de förstoras för foliering.
+    </div>
+
+    <h2>📐 Produkter som kan folieras</h2>
+
+    <table>
+      <tr>
+        <th>Produkt</th>
+        <th>Folieringsområde</th>
+        <th>Kostnad</th>
+      </tr>
+      <tr>
+        <td>Värmepump 9kW</td>
+        <td>Ca 60x40cm (fram och sidor)</td>
+        <td>2 500 kr</td>
+      </tr>
+      <tr>
+        <td>Grillstation</td>
+        <td>Ca 100x50cm (front och sidor)</td>
+        <td>3 500 kr</td>
+      </tr>
+      <tr>
+        <td>Annan utrustning</td>
+        <td>Kontakta oss för offert</td>
+        <td>Efter behov</td>
+      </tr>
+    </table>
+
+    <h2>⏱️ Tidsplan</h2>
+
+    <ol>
+      <li><strong>Dag 1-2:</strong> Skicka in material till oss</li>
+      <li><strong>Dag 3-4:</strong> Vi skapar designförslag och skickar för godkännande</li>
+      <li><strong>Dag 5:</strong> Du godkänner designen</li>
+      <li><strong>Dag 6-8:</strong> Vi producerar folieringen</li>
+      <li><strong>Dag 9:</strong> Klar för leverans/upphämtning!</li>
+    </ol>
+
+    <div class="info">
+      <strong>💡 Tips:</strong><br>
+      Om du är osäker på något, skicka det du har så hjälper vi dig! Det är bättre att skicka för mycket material än för lite.
+    </div>
+
+    <h2>📤 Hur skickar jag materialet?</h2>
+
+    <p><strong>Alternativ 1: Email</strong><br>
+    Skicka till: <a href="mailto:foliering@eventgaraget.se">foliering@eventgaraget.se</a><br>
+    (Om filerna är för stora, använd WeTransfer eller Google Drive)</p>
+
+    <p><strong>Alternativ 2: Dropbox / Google Drive</strong><br>
+    Dela en länk med oss via email</p>
+
+    <p><strong>Alternativ 3: USB / Fysiskt material</strong><br>
+    Skicka till: EventGaraget, [ADRESS]</p>
+
+    <div class="contact-box">
+      <h2 style="margin-top: 0;">📞 Frågor?</h2>
+      <p>Tveka inte att höra av dig!</p>
+      <p>
+        <strong>Email:</strong> <a href="mailto:bokningar@eventgaraget.se">bokningar@eventgaraget.se</a><br>
+        <strong>Telefon:</strong> 08-123 456 78
+      </p>
+    </div>
+
+    <div class="footer">
+      <p><strong>EventGaraget AB</strong><br>
+      Vi gör ditt event oförglömligt! 🎉</p>
+      <p style="font-size: 12px; color: #999;">
+        Detta dokument skapades automatiskt av EventGaragets AI-bokningssystem.<br>
+        För ändringar, svara på det email där du fick denna guide.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+

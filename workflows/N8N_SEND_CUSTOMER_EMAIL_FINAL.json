@@ -1,0 +1,199 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "send-customer-email",
+        "options": {}
+      },
+      "name": "Webhook1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -432,
+        224
+      ],
+      "id": "6536c8f5-cde8-4863-9e82-4174f2dd8676",
+      "webhookId": "27cb8f50-d009-49da-a6f0-aebca1c17af7",
+      "alwaysOutputData": false,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "console.log(\"=== WEBHOOK DEBUG ===\");\nconsole.log(\"FULL DATA:\", JSON.stringify($json, null, 2));\n\n// Body är REDAN ett objekt - inte en string!\nconst payload = $json.body || $json;\nconst record = payload.record || payload;\n\nconsole.log(\"RECORD:\", JSON.stringify(record, null, 2));\n\nreturn [{\n  json: {\n    customer_id: record.customer_id || \"NO_ID\",\n    subject: record.subject || \"NO_SUBJECT\",\n    body_html: record.body_html || \"NO_CONTENT\",\n    recipient_email: record.recipient_email || record.to || \"NO_EMAIL\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        224
+      ],
+      "id": "4ff7e341-b9f5-468c-b30e-f458a6d2d685",
+      "name": "Extract Email Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "console.log(\"=== FORMAT EMAIL ===\");\nconsole.log(\"WEBHOOK DATA:\", JSON.stringify($json, null, 2));\n\nreturn [{\n  json: {\n    to: $json.recipient_email || $json.to || \"NO_EMAIL\",\n    subject: $json.subject || \"No Subject\",\n    html: $json.body_html || \"<p>No Content</p>\",\n    customer_id: $json.customer_id,\n    body_html: $json.body_html,\n    email_type: \"customer_message\"\n  }\n}];"
+      },
+      "name": "Format Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        224
+      ],
+      "id": "b5a33b22-5f0d-47c7-8113-6ae8e31ba0a0"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "message": "={{$json.html}}",
+        "options": {}
+      },
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        752,
+        224
+      ],
+      "id": "b69ed2da-6ac9-451b-9b87-434aaa9243b7",
+      "webhookId": "a50f228e-12d5-4275-9ce3-948d54fa47b3",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "PWIJKaD2UKoZkbUg",
+          "name": "Gmail account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://njiagzdssxoxycxraubf.supabase.co/rest/v1/outgoing_emails",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qaWFnemRzc3hveGN5cmF1YmYiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTcxNjMxOTU5OCwiZXhwIjoxODczOTg3NTk4fQ.bQJ_o_Z-EhYIpQqZ_gZ_xXuFxZu0N0N0N0N0N0N0N0N"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "recipient_email",
+              "value": "={{$json.to}}"
+            },
+            {
+              "name": "subject",
+              "value": "={{$json.subject}}"
+            },
+            {
+              "name": "body_html",
+              "value": "={{$json.html}}"
+            },
+            {
+              "name": "status",
+              "value": "sent"
+            },
+            {
+              "name": "email_type",
+              "value": "customer_message"
+            }
+          ]
+        }
+      },
+      "name": "Log Email to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1104,
+        224
+      ],
+      "id": "log-email-http-node"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1472,
+        224
+      ],
+      "id": "660d4676-7aa2-4890-988f-6d46de1afd61"
+    }
+  ],
+  "connections": {
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Extract Email Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Email Data": {
+      "main": [
+        [
+          {
+            "node": "Format Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Log Email to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Email to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4a88ff8272839a3037c3a37b8392227d54ce1cd60ae5d0250b6140753119fda2"
+  }
+}
+

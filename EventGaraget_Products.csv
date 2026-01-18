@@ -1,0 +1,11 @@
+Product Name,Category,Description,Price/Day (SEK),Min Days,Total Qty,Available Qty,Setup Required,Setup Cost,Can Wrap,Wrap Cost
+Värmepump 9kW,heating,Värmepump för tält upp till 50 kvm,450.00,1,8,8,No,0,Yes,2500.00
+Golv trä (per kvm),flooring,Trägolv för tält,85.00,1,200,200,No,0,No,0
+Partytält 3x3m,tents,Mindre partytält perfekt för upp till 15 personer,1200.00,1,5,5,No,0,No,0
+Partytält 4x4m,tents,Mellanstort tält för upp till 25 personer,1800.00,1,3,3,No,0,No,0
+Partytält 4x8m,tents,Större tält för upp till 50 personer,2500.00,1,4,4,No,0,No,0
+Partytält 6x12m,tents,Stort festtält för upp till 100 personer,5500.00,1,2,2,No,0,No,0
+Bord 180cm,furniture,"Standardbord, plats för 6-8 personer",150.00,1,20,20,No,0,No,0
+Stol vit,furniture,Vit plaststol,45.00,1,100,100,No,0,No,0
+Grillstation,equipment,Professionell grillstation,800.00,1,3,3,No,0,Yes,3500.00
+Lysrör LED,lighting,LED-belysning,120.00,1,30,30,No,0,No,0

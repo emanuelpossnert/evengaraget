@@ -1,0 +1,1118 @@
+{
+  "name": "EventGaraget - Main Booking Agent (FIXED)",
+  "nodes": [
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-3.5-turbo",
+          "mode": "list",
+          "cachedResultName": "GPT-3.5-TURBO"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Du är EventGaragets AI-bokningsagent. Analysera inkommande email och klassificera det samt extrahera viktig information.\n\n🔥🔥🔥 ABSOLUT VIKTIGASTE REGEL - LÄS DETTA FÖRST! 🔥🔥🔥\n\nOM kunden frågar om PRODUKTER eller säger 'jag vill ha' eller 'har ni':\n→ classification = quote_request (ALDRIG other!)\n\nOM kunden frågar om PRIS (kostar, pris, hur mycket):\n→ classification = quote_request (ALDRIG other!)\n\nEXEMPEL på quote_request:\n- Har ni tält med toalett? → quote_request\n- Jag vill ha 2 bajstält → quote_request  \n- Vad kostar...? → quote_request\n\nKLASSIFICERING:\n- quote_request: Kunden frågar om pris ELLER vill ha offert (kräver ALLTID fullständig info för att skapa offert)\n- booking_request: Kunden vill bekräfta en bokning (kräver ALLTID fullständig info)\n- support_question: Allmän FAQ-fråga som INTE kräver offert (t.ex. \"Ingår leverans?\", \"Vad är öppettider?\")\n- booking_modification: Ändring av befintlig bokning\n- complaint: Klagomål eller problem\n- other: Övrigt\n\nKRITISK REGEL för quote_request/booking_request:\nSätt has_all_info=true ENDAST om ALL nedanstående information finns:\n\nOBLIGATORISK INFORMATION för offert/bokning:\n- Kundnamn ✓\n- Email ✓\n- Telefon ✓\n- Företagsnamn (om företagskund) ✓\n- Organisationsnummer (om företagskund) ✓\n- Fullständig leveransadress (gata, postnr, stad) ✓\n- Faktureringsadress (om annan än leverans) ✓\n- Startdatum för hyra (exakt datum) ✓\n- Slutdatum för hyra (exakt datum) ✓\n- Produkter som önskas (specifika) ✓\n- Antal gäster (ungefärligt) ✓\n- Typ av event (fest, bröllop, företagsevent etc) ✓\n\n🎨 FOLIERING/WRAPPING:\nVi erbjuder FOLIERING av maskiner (värmepumpar, grillstationer).\nDetektera om kunden vill ha foliering:\n- Nyckelord: \"foliering\", \"foliera\", \"branding\", \"logga på\", \"eget tryck\", \"design\", \"egen profil\"\n- Om ja: Sätt wants_wrapping=true och lägg till \"wrapping_design_request\" i extracted_questions\n- Om foliering önskas: Informera att vi behöver bildmaterial (logga, färger, mått)\n\n🔍 PRODUKTKONTROLL:\nKOLLA PRISLISTAN! Om kunden efterfrågar produkt som INTE finns:\n- Föreslå 2-3 liknande produkter från prislistan i follow_up_message\n- Exempel: bajstält finns inte → Föreslå Partytält + Fristående toaletter\n- Lista produktnamn och ungefärliga priser från prislistan\n\nOM NÅGOT SAKNAS:\n- Sätt has_all_info=false\n- Lista ENDAST fält som INTE redan finns i customer_info eller booking_details\n- UTELÄMNA name och email från missing_info om de redan extraherades\n- Skapa ett personligt follow_up_message som:\n  1. Tackar för förfrågan\n  2. Om produkten inte finns: Föreslår alternativ från prislistan\n  3. Ber ENDAST om info som faktiskt saknas\n\nEXEMPEL på prisfrågor som ÄR quote_request:\n- \"Vad kostar ett tält?\"\n- \"Hur mycket kostar det att hyra bord och stolar?\"\n- \"Kan jag få en prisuppgift?\"\n- \"Priser på festtält?\"\n\nEXEMPEL på FAQ som ÄR support_question:\n- \"Ingår leverans?\"\n- \"Vilka betalningsmetoder accepterar ni?\"\n- \"Vad är öppettiderna?\"\n- \"Hur lång tid tar leverans?\"\n\n🚨 KRITISKT: SVARA ENDAST MED VALID JSON - INGEN ANNAN TEXT! 🚨
+
+Du MÅSTE svara EXAKT i detta JSON-format (ingenting annat):\n{\n  \"classification\": \"quote_request\",\n  \"confidence\": 0.95,\n  \"sentiment\": 0.8,\n  \"has_all_info\": false,\n  \"wants_wrapping\": false,\n  \"wrapping_products\": [],\n  \"customer_info\": {\n    \"name\": \"Anders Svensson\",\n    \"email\": \"anders@example.com\",\n    \"phone\": \"070-123 45 67\",\n    \"company\": \"Företaget AB\",\n    \"org_number\": \"556677-8899\"\n  },\n  \"booking_details\": {\n    \"start_date\": \"2024-06-15\",\n    \"end_date\": \"2024-06-16\",\n    \"event_type\": \"fest\",\n    \"guest_count\": 50,\n    \"products_requested\": [\"partytält\", \"bord\", \"stolar\"],\n    \"delivery_address\": \"Storgatan 1, 11234 Stockholm\",\n    \"invoice_address\": \"Storgatan 1, 11234 Stockholm\"\n  },\n  \"extracted_questions\": [\"Ingår montering?\"],\n  \"missing_info\": [\"phone\", \"start_date\", \"end_date\", \"delivery_address\", \"guest_count\", \"event_type\"],\n  \"follow_up_message\": \"Hej! Tack för din förfrågan om tält! Vi har tyvärr inte bajstält, men jag kan erbjuda:\\n\\n🎪 Partytält 4x8m (ca 2500 kr/dag) - Perfekt för 50+ gäster\\n🚽 Fristående toaletter (ca 800 kr/dag) - Kan placeras vid tältet\\n\\nFör att skapa en exakt offert behöver jag:\\n• Telefonnummer\\n• Datum för hyra (start och slut)\\n• Leveransadress\\n• Antal gäster\\n• Typ av event\\n\\nVill du ha en offert på dessa alternativ? 😊\",\n  \"priority\": \"normal\",\n  \"requires_human\": false,\n  \"summary\": \"Kunden frågar om pris på partytält men saknar all nödvändig information för offert.\"\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Från: {{ $json.from }}\nÄmne: {{ $json.subject }}\n\nMeddelande:\n{{ $json.body }}{{ $json.customer_context || '' }}\n\nPRISLISTA (produkter vi har):\n{{ JSON.stringify($('Get Price List1').all()) }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 1500,
+          "temperature": 0.3,
+          "responseFormat": "json_object"
+        }
+      },
+      "id": "809039f6-0472-4e19-85e0-af012c1a24c3",
+      "name": "🤖 AI Agent - Email Classifier & Info Check",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        -1840,
+        -400
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "erTJVf7Uoi3QApUy",
+          "name": "OpenAi account 2"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "output": 0,
+              "conditions": {
+                "string": [
+                  {
+                    "value1": "={{$json.classification}}",
+                    "operation": "regex",
+                    "value2": "booking_request|quote_request"
+                  }
+                ],
+                "boolean": [
+                  {
+                    "value1": "={{$json.has_all_info}}",
+                    "operation": "false"
+                  }
+                ]
+              }
+            },
+            {
+              "output": 1,
+              "conditions": {
+                "string": [
+                  {
+                    "value1": "={{$json.classification}}",
+                    "operation": "regex",
+                    "value2": "booking_request|quote_request"
+                  }
+                ],
+                "boolean": [
+                  {
+                    "value1": "={{$json.has_all_info}}",
+                    "operation": "true"
+                  }
+                ]
+              }
+            },
+            {
+              "output": 2,
+              "conditions": {
+                "string": [
+                  {
+                    "value1": "={{$json.classification}}",
+                    "operation": "equals",
+                    "value2": "support_question"
+                  }
+                ]
+              }
+            },
+            {
+              "output": 3,
+              "conditions": {
+                "boolean": [
+                  {
+                    "value1": "={{$json.requires_human}}",
+                    "operation": "true"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "fallbackOutput": 0
+      },
+      "id": "e566386f-db11-4dd1-8f7c-2c260eb7d6d2",
+      "name": "Router - Classification & Info Check",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        -1264,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get data from Parse AI Response\nconst parseAiItems = $('Parse AI Response1').all();\nconst data = parseAiItems[0].json;\nconst customer = data.customer_info || {};\nconst missing = data.missing_info || [];\nconst followUpMessage = data.follow_up_message;\n\n// Get email data from Gmail (UPPERCASE field names!)\nconst gmailItems = $('Gmail Trigger - New Emails1').all();\nconst gmail = gmailItems[0].json;\n\n// Extract clean email and name\nconst fromField = gmail.From || '';\nconst emailMatch = fromField.match(/<(.+?)>/) || fromField.match(/([^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+)/);\nconst toEmail = customer.email || (emailMatch ? emailMatch[1] : fromField.trim());\n\nlet customerName = customer.name || 'där';\nif (!customer.name) {\n  const nameMatch = fromField.match(/^([^<]+)/);\n  if (nameMatch && nameMatch[1].trim()) {\n    customerName = nameMatch[1].trim();\n  }\n}\n\nconst labels = {\n  'org_number': 'Organisationsnummer',\n  'company': 'Företagsnamn',\n  'phone': 'Telefonnummer',\n  'invoice_address': 'Fakturaadress (om annan än leveransadress)',\n  'start_date': 'Startdatum för hyra',\n  'end_date': 'Slutdatum för hyra',\n  'delivery_address': 'Fullständig leveransadress',\n  'products_requested': 'Vilka produkter ni önskar',\n  'guest_count': 'Antal gäster (ungefär)',\n  'event_type': 'Typ av event'\n};\n\nconst missingList = missing.map(item => `<li>${labels[item] || item}</li>`).join('');\n\nconst emailHtml = `\n<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; }\n    .header { background: #2c3e50; color: white; padding: 20px; text-align: center; }\n    .content { padding: 30px; background: #f9f9f9; }\n    .info-box { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }\n    .footer { padding: 20px; text-align: center; color: #7f8c8d; font-size: 0.9em; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h2>EventGaraget</h2>\n    </div>\n    \n    <div class=\"content\">\n      <p>Hej ${customerName}!</p>\n      \n      <p>Tack för din bokningsförfrågan! 🎉</p>\n      \n      <p>${followUpMessage || 'För att skapa en exakt offert behöver jag lite mer information från dig.'}</p>\n      \n      <div class=\"info-box\">\n        <strong>📝 Vi behöver följande information:</strong>\n        <ul>\n          ${missingList}\n        </ul>\n      </div>\n      \n      <p>Svara bara på detta mail med informationen så återkommer jag direkt med en offert! 😊</p>\n      \n      <p>Med vänliga hälsningar,<br>\n      <strong>EventGaraget (AI-assistent)</strong></p>\n    </div>\n    \n    <div class=\"footer\">\n      <p><strong>EventGaraget (TEST-MILJÖ)</strong></p>\n      <p>📧 admin@striky.se | 📞 08-123 456 78</p>\n    </div>\n  </div>\n</body>\n</html>\n`;\n\nconsole.log('✅ Follow-up email to:', toEmail, 'name:', customerName);\n\nreturn {\n  to: toEmail,\n  subject: 'Re: ' + gmail.Subject + ' - Vi behöver lite mer info',\n  html: emailHtml\n};"
+      },
+      "id": "49d474ca-964d-4c5a-8f90-a894c28a5f09",
+      "name": "📧 Format Follow-up Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -832,
+        -784
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "message": "={{$json.html}}",
+        "options": {}
+      },
+      "id": "9b9e81a0-4538-480b-81f1-71e0f2dab536",
+      "name": "✉️ Send Follow-up Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        -544,
+        -784
+      ],
+      "webhookId": "9a45cc66-6580-4a0d-a168-df728fdae7e8",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30lZheVCEHLNKsYy",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "includeSpamTrash": false,
+          "labelIds": [
+            "INBOX"
+          ]
+        }
+      },
+      "id": "8ad0458d-3e9e-4d12-8d76-05621cb3cdb0",
+      "name": "Gmail Trigger - New Emails1",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2288,
+        -400
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30lZheVCEHLNKsYy",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and normalize email data - Gmail uses UPPERCASE field names!\nconst gmailData = $input.first().json;\n\n// Extract email address from \"Name <email@domain.com>\" format\nconst fromField = gmailData.From || '';\nconst emailMatch = fromField.match(/<(.+?)>/) || fromField.match(/([^\\s@]+@[^\\s@]+\\.[^\\s@]+)/);\nconst emailAddress = emailMatch ? emailMatch[1] : fromField.trim();\n\nreturn {\n  thread_id: gmailData.threadId,\n  message_id: gmailData.id,\n  from: gmailData.From,     // ← Uppercase!\n  to: gmailData.To,         // ← Uppercase!\n  subject: gmailData.Subject, // ← Uppercase!\n  body: gmailData.snippet || '',\n  date: gmailData.internalDate,\n  labels: gmailData.labels,\n  email_address: emailAddress  // ← Clean email for lookup\n};"
+      },
+      "id": "b9d34016-907e-410e-8653-7cce33befb19",
+      "name": "Extract Email Data1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2064,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/customers?email=eq.{{ $json.email_address }}&select=*,bookings(id,booking_number,status,delivery_date,total_amount,created_at),conversations(id,subject,status,sentiment,created_at)&bookings.order=created_at.desc&bookings.limit=5&conversations.order=created_at.desc&conversations.limit=5",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-5678-90ab-cdef-123456789abc",
+      "name": "🔍 Fetch Customer History",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -1952,
+        -320
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format customer history for AI context\nconst emailData = $('Extract Email Data1').first().json;\nconst historyResponse = $input.first().json;\n\n// Check if customer exists\nlet customerContext = '';\n\nif (historyResponse && Array.isArray(historyResponse) && historyResponse.length > 0) {\n  const customer = historyResponse[0];\n  \n  // Build context string\n  customerContext = `\\n\\n📊 KUNDHISTORIK:\\n`;\n  customerContext += `- Kund sedan: ${new Date(customer.created_at).toLocaleDateString('sv-SE')}\\n`;\n  customerContext += `- Kundtyp: ${customer.customer_type || 'privat'}\\n`;\n  customerContext += `- Totalt antal bokningar: ${customer.total_bookings || 0}\\n`;\n  customerContext += `- Total omsättning: ${customer.total_revenue || 0} kr\\n`;\n  \n  if (customer.phone) {\n    customerContext += `- Telefon: ${customer.phone}\\n`;\n  }\n  \n  if (customer.company_name) {\n    customerContext += `- Företag: ${customer.company_name}\\n`;\n    if (customer.org_number) {\n      customerContext += `- Org.nr: ${customer.org_number}\\n`;\n    }\n  }\n  \n  if (customer.address) {\n    customerContext += `- Adress: ${customer.address}, ${customer.postal_code || ''} ${customer.city || ''}\\n`;\n  }\n  \n  // Previous bookings\n  if (customer.bookings && customer.bookings.length > 0) {\n    customerContext += `\\n📅 Tidigare bokningar (senaste 5):\\n`;\n    customer.bookings.forEach((booking, idx) => {\n      customerContext += `  ${idx + 1}. ${booking.booking_number} - ${booking.status} - ${new Date(booking.delivery_date).toLocaleDateString('sv-SE')} - ${booking.total_amount} kr\\n`;\n    });\n  }\n  \n  // Previous conversations\n  if (customer.conversations && customer.conversations.length > 0) {\n    customerContext += `\\n💬 Tidigare konversationer (senaste 5):\\n`;\n    customer.conversations.forEach((conv, idx) => {\n      const sentiment = conv.sentiment > 0.5 ? '😊 Positiv' : conv.sentiment < 0 ? '😟 Negativ' : '😐 Neutral';\n      customerContext += `  ${idx + 1}. ${conv.subject} - ${conv.status} - ${sentiment}\\n`;\n    });\n  }\n  \n  customerContext += `\\n💡 ANVÄND DENNA HISTORIK för att:\\n`;\n  customerContext += `- Ge personlig service (\"Välkommen tillbaka!\" om återkommande kund)\\n`;\n  customerContext += `- Förifylla information som redan finns\\n`;\n  customerContext += `- Referera till tidigare bokningar om relevant\\n`;\n  customerContext += `- Anpassa tonalitet baserat på kundtyp (privat/företag/VIP)\\n`;\n} else {\n  customerContext = `\\n\\n📊 KUNDHISTORIK: Ny kund (ingen tidigare historik)\\n`;\n  customerContext += `💡 Detta är en ny potentiell kund - var extra välkomnande!\\n`;\n}\n\nreturn {\n  ...emailData,\n  customer_context: customerContext,\n  is_returning_customer: historyResponse && historyResponse.length > 0,\n  customer_data: historyResponse && historyResponse.length > 0 ? historyResponse[0] : null\n};"
+      },
+      "id": "b2c3d4e5-6789-01ab-cdef-234567890bcd",
+      "name": "📝 Format Customer Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2064,
+        -280
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle different OpenAI response formats with ROBUST error handling\nconst input = $input.first().json;\nlet aiResponse;\n\n// Helper function to try parsing JSON with fallback\nfunction tryParse(str) {\n  // Check if it's actually text (not JSON)\n  if (typeof str === 'string' && !str.trim().startsWith('{')) {\n    console.error('❌ OpenAI returned TEXT instead of JSON:', str.substring(0, 200));\n    // Return a fallback JSON response that triggers human takeover\n    return {\n      classification: 'other',\n      confidence: 0,\n      sentiment: 0,\n      has_all_info: false,\n      requires_human: true,\n      customer_info: {},\n      booking_details: {},\n      extracted_questions: [],\n      missing_info: ['all'],\n      follow_up_message: '',\n      priority: 'high',\n      summary: '⚠️ AI returnerade text istället för JSON - behöver mänsklig granskning',\n      ai_text_response: str.substring(0, 500)\n    };\n  }\n  \n  try {\n    // Try to fix common JSON issues\n    const fixed = str\n      .replace(/'/g, '\"')  // Replace single quotes with double\n      .replace(/,(\\s*[}\\]])/g, '$1')  // Remove trailing commas\n      .trim();\n    return JSON.parse(fixed);\n  } catch (e) {\n    console.error('JSON parse error:', e.message);\n    console.error('Failed string:', str.substring(0, 200));\n    \n    // Return fallback instead of crashing\n    return {\n      classification: 'other',\n      confidence: 0,\n      sentiment: 0,\n      has_all_info: false,\n      requires_human: true,\n      customer_info: {},\n      booking_details: {},\n      extracted_questions: [],\n      missing_info: ['all'],\n      follow_up_message: '',\n      priority: 'high',\n      summary: `⚠️ JSON parse error: ${e.message}`,\n      parse_error: str.substring(0, 500)\n    };\n  }\n}\n\n// Try different possible response locations\ntry {\n  if (input.response) {\n    aiResponse = tryParse(input.response);\n  } else if (input.choices && input.choices[0]?.message?.content) {\n    aiResponse = tryParse(input.choices[0].message.content);\n  } else if (input.message?.content) {\n    aiResponse = tryParse(input.message.content);\n  } else if (input.text) {\n    aiResponse = tryParse(input.text);\n  } else {\n    // Assume it's already parsed\n    aiResponse = input;\n  }\n} catch (error) {\n  // Log the full input for debugging\n  console.error('Full input object:', JSON.stringify(input, null, 2));\n  // Don't throw - return fallback\n  aiResponse = {\n    classification: 'other',\n    confidence: 0,\n    sentiment: 0,\n    has_all_info: false,\n    requires_human: true,\n    customer_info: {},\n    booking_details: {},\n    extracted_questions: [],\n    missing_info: ['all'],\n    follow_up_message: '',\n    priority: 'high',\n    summary: `⚠️ Unexpected error: ${error.message}`,\n    full_error: error.stack\n  };\n}\n\n// Get original email data\nlet originalEmail = null;\n\ntry {\n  const extractItems = $('Extract Email Data1').all();\n  if (extractItems && extractItems.length > 0) {\n    originalEmail = extractItems[0].json;\n    console.log('✅ Got email from Extract Email Data1:', originalEmail.from);\n  }\n} catch (e) {\n  console.log('⚠️ Extract Email Data1 failed:', e.message);\n}\n\n// Fallback: Get from Gmail Trigger\nif (!originalEmail || !originalEmail.from) {\n  try {\n    const gmailItems = $('Gmail Trigger - New Emails1').all();\n    if (gmailItems && gmailItems.length > 0) {\n      const gmail = gmailItems[0].json;\n      originalEmail = {\n        thread_id: gmail.threadId,\n        message_id: gmail.id,\n        from: gmail.from,\n        to: gmail.to,\n        subject: gmail.subject,\n        body: gmail.plainText || gmail.textHtml,\n        date: gmail.date\n      };\n      console.log('✅ Got email from Gmail Trigger:', originalEmail.from);\n    }\n  } catch (e2) {\n    console.log('⚠️ Gmail Trigger also failed:', e2.message);\n  }\n}\n\nif (!originalEmail || !originalEmail.from) {\n  console.error('❌ CRITICAL: No email data available!');\n}\n\nreturn {\n  ...aiResponse,\n  original_email: originalEmail,\n  processed_at: new Date().toISOString()\n};"
+      },
+      "id": "5eafd6e2-769e-4028-86e7-9326645a6129",
+      "name": "Parse AI Response1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1488,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/customers",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({\n  email: $json.email,\n  name: $json.name,\n  phone: $json.phone,\n  company_name: $json.company_name,\n  org_number: $json.org_number,\n  last_contact_at: $json.last_contact_at\n})}}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "e654189f-2ed8-4acf-a6b9-3c55ee5aae11",
+      "name": "Create/Update Customer1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -832,
+        -592
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge customer response with email data - Gmail uses UPPERCASE!\nconst customerResponse = $input.first().json;\n\n// Get email data from Gmail (note: From, Subject, To are UPPERCASE!)\nconst gmailItems = $('Gmail Trigger - New Emails1').all();\nconst gmail = gmailItems[0].json;\n\n// Get AI data from Parse AI Response1\nconst parseAiItems = $('Parse AI Response1').all();\nconst aiData = parseAiItems[0].json;\n\nconst emailData = {\n  thread_id: gmail.threadId,\n  message_id: gmail.id,\n  from: gmail.From,     // ← Uppercase!\n  to: gmail.To,         // ← Uppercase!\n  subject: gmail.Subject, // ← Uppercase!\n  body: gmail.snippet || ''\n};\n\n// Return customer response + metadata\nreturn {\n  ...customerResponse,\n  _metadata: {\n    email: emailData,\n    ai: aiData\n  }\n};"
+      },
+      "id": "merge-customer-metadata-001",
+      "name": "Merge Customer & Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        -592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare conversation data - Gmail uses UPPERCASE field names!\nconst customer = $input.first().json;\n\n// Get email data from Gmail (note: From, Subject, To are UPPERCASE!)\nconst gmailItems = $('Gmail Trigger - New Emails1').all();\nconst gmail = gmailItems[0].json;\n\n// Get AI data from Parse AI Response1\nconst parseAiItems = $('Parse AI Response1').all();\nconst aiData = parseAiItems[0].json;\n\nreturn {\n  conversation_id: gmail.threadId,\n  customer_id: customer.id,\n  subject: gmail.Subject,  // ← Uppercase!\n  status: \"active\",\n  type: aiData.classification,\n  sentiment: aiData.sentiment || 0.5,\n  priority: aiData.priority || \"normal\",\n  // Pass metadata forward\n  _metadata: {\n    email: {\n      thread_id: gmail.threadId,\n      message_id: gmail.id,\n      from: gmail.From,     // ← Uppercase!\n      to: gmail.To,         // ← Uppercase!\n      subject: gmail.Subject, // ← Uppercase!\n      body: gmail.snippet || ''\n    },\n    ai: aiData\n  }\n};"
+      },
+      "id": "prep-conv-data-001",
+      "name": "Prepare Conversation Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -560,
+        -592
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/conversations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({\n  conversation_id: $json.conversation_id,\n  customer_id: $json.customer_id,\n  subject: $json.subject,\n  status: $json.status,\n  type: $json.type,\n  sentiment: $json.sentiment,\n  priority: $json.priority\n})}}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "35cf999d-4831-4bdd-9935-7f04c8920b9b",
+      "name": "Create Conversation1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -464,
+        -592
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1gX3lQ5Ns5n5-cwqT4fAuU3Spcx86UtUPcUeWPNj2tAQ",
+          "mode": "list",
+          "cachedResultName": "FAQ_template",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gX3lQ5Ns5n5-cwqT4fAuU3Spcx86UtUPcUeWPNj2tAQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1663703534,
+          "mode": "list",
+          "cachedResultName": "FAQ_template",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gX3lQ5Ns5n5-cwqT4fAuU3Spcx86UtUPcUeWPNj2tAQ/edit#gid=1663703534"
+        },
+        "options": {}
+      },
+      "id": "d5d11051-1ae7-49c1-86f5-fd6ccc55211c",
+      "name": "Get FAQ Data1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -832,
+        -208
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rImZoR2a92JfJBoa",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-3.5-turbo",
+          "mode": "list",
+          "cachedResultName": "GPT-3.5-TURBO"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Du är EventGaragets hjälpsamma supportagent. Svara på kundens frågor baserat på FAQ-databasen OCH prislistan.\n\n🚨 KRITISK REGEL: HITTA ALDRIG PÅ PRODUKTER!\n- Om en produkt INTE finns i prislistan → Säg att vi INTE har den\n- Föreslå istället liknande produkter som FAKTISKT finns i prislistan\n- Var ÄRLIG om vad vi har och inte har\n\nFAQ Data:\n={{JSON.stringify($('Get FAQ Data1').all())}}\n\nPrislista (ENDAST dessa produkter finns):\n={{JSON.stringify($('Get Price List1').all())}}\n\nRegler:\n- Var vänlig och professionell\n- Använd ENDAST information från FAQ och prislistan\n- Om kunden frågar om produkter vi INTE har → Säg att vi tyvärr inte har det, men föreslå alternativ från prislistan\n- Om kunden frågar om logga/branding/foliering → Förklara att vi erbjuder folieringstjänster och behöver bildmaterial\n- Om du inte vet, säg att du kontaktar dem inom 24h\n- Avsluta alltid med att fråga om de behöver mer hjälp eller vill ha en offert\n- Inkludera kontaktuppgifter i signaturen",
+              "role": "system"
+            },
+            {
+              "content": "=Kundinfo:\nNamn: {{$('Parse AI Response1').all()[0].json.customer_info.name}}\n\nKundens frågor:\n{{JSON.stringify($('Parse AI Response1').all()[0].json.extracted_questions)}}\n\nOriginellt meddelande:\n{{$('Extract Email Data1').all()[0].json.body}}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 800,
+          "temperature": 0.7
+        }
+      },
+      "id": "5ccd4217-743f-4fe9-a8aa-628a2eb85966",
+      "name": "🤖 AI Agent - Support Response1",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        -608,
+        -208
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "erTJVf7Uoi3QApUy",
+          "name": "OpenAi account 2"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "14Cyxg-9OomP9FDhe-JsIVqaRDV3jWXLKoK-894ujga8",
+          "mode": "list",
+          "cachedResultName": "PriceList_template",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14Cyxg-9OomP9FDhe-JsIVqaRDV3jWXLKoK-894ujga8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2014925895,
+          "mode": "list",
+          "cachedResultName": "PriceList_template",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14Cyxg-9OomP9FDhe-JsIVqaRDV3jWXLKoK-894ujga8/edit#gid=2014925895"
+        },
+        "options": {}
+      },
+      "id": "527fe381-1ced-4de7-b9fc-f5a46dfbc718",
+      "name": "Get Price List1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        -832,
+        -400
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rImZoR2a92JfJBoa",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-3.5-turbo",
+          "mode": "list",
+          "cachedResultName": "GPT-3.5-TURBO"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Du är EventGaragets AI-agent som skapar offerter OCH svarar på FAQ-frågor i samma mail.\n\n🚨 KRITISK REGEL: HITTA ALDRIG PÅ PRODUKTER!\n- Om en produkt INTE finns i prislistan → Säg att vi INTE har den\n- Föreslå istället liknande produkter som FAKTISKT finns\n- Var ÄRLIG om vad som finns och inte finns\n\nPrislista (ENDAST dessa produkter finns):\n={{JSON.stringify($('Get Price List1').all())}}\n\nFAQ-databas:\n={{JSON.stringify($('Get FAQ Data1').all())}}\n\nVIKTIGT: Om kunden har FAQ-frågor I TILLÄGG till offertförfrågan, svara på BÅDA i samma mail!\n\nBaserat på kundens önskemål:\n1. Skapa en detaljerad offert med:\n   - Listade produkter med kvantitet och pris\n   - Totalsumma\n   - Leveransvillkor\n   - Betalningsvillkor\n\n2. Svara på eventuella FAQ-frågor från FAQ-databasen\n   - \"Ingår leverans?\" → Kolla FAQ\n   - \"Ingår montering?\" → Kolla FAQ\n   - \"Hur lång tid tar leverans?\" → Kolla FAQ\n\n3. Kombinera offert OCH FAQ-svar i email_response\n\nSvara med JSON:\n{\n  \"products\": [{\"name\": \"Partytält 4x8m\", \"quantity\": 1, \"price_per_unit\": 2500, \"total\": 2500}],\n  \"subtotal\": 2500,\n  \"setup_fee\": 500,\n  \"total\": 3000,\n  \"email_response\": \"Hej! Här kommer din offert:\\n\\n[Offertdetaljer här]\\n\\nDu frågade också om leverans - Ja, leverans ingår i priset inom 50km från Stockholm!\\n\\nMed vänliga hälsningar...\"\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Kundinfo:\n{{JSON.stringify($('Parse AI Response1').all()[0].json.customer_info)}}\n\nBokningsdetaljer:\n{{JSON.stringify($('Parse AI Response1').all()[0].json.booking_details)}}\n\nKundens FAQ-frågor:\n{{JSON.stringify($('Parse AI Response1').all()[0].json.extracted_questions)}}\n\nOriginellt meddelande:\n{{$('Extract Email Data1').all()[0].json.body}}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 1200,
+          "temperature": 0.3
+        }
+      },
+      "id": "cef40d76-a39f-459b-8084-0dcd43201792",
+      "name": "🤖 AI Agent - Quote Generator1",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        -608,
+        -400
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "erTJVf7Uoi3QApUy",
+          "name": "OpenAi account 2"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Robust parsing of AI Quote Generator response\nconst input = $input.first().json;\n\n// Helper function to try parsing JSON\nfunction tryParse(str) {\n  try {\n    const fixed = str\n      .replace(/'/g, '\"')\n      .replace(/,(\\s*[}\\]])/g, '$1')\n      .trim();\n    return JSON.parse(fixed);\n  } catch (e) {\n    throw new Error(`Failed to parse quote response: ${e.message}`);\n  }\n}\n\n// Try different possible response locations\nlet quoteData;\ntry {\n  if (input.response) {\n    quoteData = tryParse(input.response);\n  } else if (input.choices && input.choices[0]?.message?.content) {\n    quoteData = tryParse(input.choices[0].message.content);\n  } else if (input.message?.content) {\n    quoteData = tryParse(input.message.content);\n  } else if (input.text) {\n    quoteData = tryParse(input.text);\n  } else {\n    quoteData = input;\n  }\n} catch (error) {\n  console.error('❌ Failed to parse quote data:', error.message);\n  console.error('Input:', JSON.stringify(input, null, 2));\n  throw error;\n}\n\n// Get data from other nodes using .all()[0] instead of .item\nconst parseAiItems = $('Parse AI Response1').all();\nconst customerInfo = parseAiItems[0].json.customer_info;\nconst bookingDetails = parseAiItems[0].json.booking_details;\n\nconst conversationItems = $('Create Conversation1').all();\nconst conversationId = conversationItems[0].json.id;\n\nconst customerItems = $('Create/Update Customer1').all();\nconst customerId = customerItems[0].json.id;\n\n// Generate booking number\nconst bookingNumber = 'BK-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-6);\n\nreturn {\n  booking: {\n    booking_number: bookingNumber,\n    customer_id: customerId,\n    conversation_id: conversationId,\n    delivery_date: bookingDetails.event_date,\n    delivery_address: bookingDetails.delivery_address,\n    total_amount: quoteData.total,\n    status: 'draft',\n    notes: bookingDetails.event_type + ' - ' + bookingDetails.guest_count + ' gäster'\n  },\n  products: quoteData.products.map(p => ({\n    booking_number: bookingNumber,\n    product_name: p.name,\n    quantity: p.quantity,\n    price_per_unit: p.price_per_unit,\n    total_price: p.total\n  })),\n  email_response: quoteData.email_response,\n  quote_data: quoteData\n};"
+      },
+      "id": "16f81a61-3710-4ff6-9fff-3217349ff5a0",
+      "name": "Prepare Booking Data1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/bookings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json.booking)}}",
+        "options": {
+          "response": {
+            "response": {}
+          }
+        }
+      },
+      "id": "47082406-eea3-422f-b5c4-a6c8e72ac696",
+      "name": "Create Booking1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -32,
+        -400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get products from Prepare Booking Data1 (not from Create Booking1)\nconst prepareBookingItems = $('Prepare Booking Data1').all();\nconst products = prepareBookingItems[0].json.products;\n\n// Get booking ID from Create Booking1 (current input)\nconst bookingResponse = $input.first().json;\nconst bookingId = bookingResponse.id;\n\nconsole.log('✅ Mapping', products.length, 'products with booking_id:', bookingId);\n\n// Map products to only include fields that exist in booking_products table\nreturn products.map(product => ({\n  booking_id: bookingId,\n  product_name: product.name || product.product_name,\n  quantity: product.quantity,\n  price_per_unit: product.price_per_unit || product.price,\n  total_price: product.total || product.total_price,\n  category: product.category || null,\n  notes: product.notes || product.description || null\n}));"
+      },
+      "id": "0db6d05e-8218-4e73-b24c-0ecc59d52231",
+      "name": "Prepare Products1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/booking_products",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json)}}",
+        "options": {}
+      },
+      "id": "6edefccc-2e91-4c92-a0b7-e5f637d87db0",
+      "name": "Insert Products1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        416,
+        -400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get data from Prepare Booking Data1 - it has everything we need!\nconst prepareBookingItems = $('Prepare Booking Data1').all();\nconst bookingData = prepareBookingItems[0].json;\nconst emailResponse = bookingData.email_response;\nconst quoteData = bookingData.quote_data;\nconst booking = bookingData.booking; // This has the booking details\n\nconst parseAiItems = $('Parse AI Response1').all();\nconst customerInfo = parseAiItems[0].json.customer_info;\n\n// Build product table HTML\nconst productRows = quoteData.products.map(p => \n  `<tr>\n    <td style=\"padding: 8px; border: 1px solid #ddd;\">${p.name}</td>\n    <td style=\"padding: 8px; border: 1px solid #ddd; text-align: center;\">${p.quantity}</td>\n    <td style=\"padding: 8px; border: 1px solid #ddd; text-align: right;\">${p.price_per_unit} kr</td>\n    <td style=\"padding: 8px; border: 1px solid #ddd; text-align: right;\">${p.total} kr</td>\n  </tr>`\n).join('');\n\nconst htmlContent = `\n<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: #2c3e50; color: white; padding: 20px; text-align: center; }\n    .content { padding: 20px; background: #f9f9f9; }\n    table { width: 100%; border-collapse: collapse; margin: 20px 0; }\n    th { background: #34495e; color: white; padding: 10px; text-align: left; }\n    .total { font-size: 1.2em; font-weight: bold; color: #2c3e50; }\n    .footer { padding: 20px; text-align: center; font-size: 0.9em; color: #7f8c8d; }\n    .button { display: inline-block; padding: 12px 24px; background: #3498db; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>EventGaraget</h1>\n      <p>Din offert är klar!</p>\n    </div>\n    <div class=\"content\">\n      <p>Hej ${customerInfo.name || 'där'}!</p>\n      <p>${emailResponse}</p>\n      \n      <h3>Offertdetaljer</h3>\n      <p><strong>Bokningsnummer:</strong> ${booking.booking_number}</p>\n      <p><strong>Leveransdatum:</strong> ${booking.delivery_date || 'Se bokningsdetaljer'}</p>\n      \n      <table>\n        <thead>\n          <tr>\n            <th>Produkt</th>\n            <th style=\"text-align: center;\">Antal</th>\n            <th style=\"text-align: right;\">Pris/st</th>\n            <th style=\"text-align: right;\">Totalt</th>\n          </tr>\n        </thead>\n        <tbody>\n          ${productRows}\n          <tr>\n            <td colspan=\"3\" style=\"padding: 8px; text-align: right; font-weight: bold;\">Delsumma:</td>\n            <td style=\"padding: 8px; border: 1px solid #ddd; text-align: right;\">${quoteData.subtotal} kr</td>\n          </tr>\n          ${quoteData.setup_fee ? `<tr>\n            <td colspan=\"3\" style=\"padding: 8px; text-align: right;\">Montering:</td>\n            <td style=\"padding: 8px; border: 1px solid #ddd; text-align: right;\">${quoteData.setup_fee} kr</td>\n          </tr>` : ''}\n          <tr>\n            <td colspan=\"3\" style=\"padding: 8px; text-align: right;\" class=\"total\">TOTALT:</td>\n            <td style=\"padding: 8px; border: 1px solid #ddd; text-align: right;\" class=\"total\">${quoteData.total} kr</td>\n          </tr>\n        </tbody>\n      </table>\n      \n      <p style=\"margin-top: 30px;\">\n        <a href=\"https://eventgaraget.se/sign/${booking.booking_number}\" class=\"button\">✍️ Signera & Bekräfta Bokning</a>\n      </p>\n      \n      <h4>Villkor:</h4>\n      <ul>\n        <li>Kostnadsfri avbokning fram till 48h före leverans</li>\n        <li>50% handpenning vid signering</li>\n        <li>Restbetalning vid leverans</li>\n        <li>Hyresperiod: 1 dag (längre hyresperiod efter överenskommelse)</li>\n      </ul>\n      \n      <p>Om du har några frågor är du välkommen att kontakta oss!</p>\n    </div>\n    <div class=\"footer\">\n      <p><strong>EventGaraget (TEST)</strong></p>\n      <p>📧 admin@striky.se | 📞 08-123 456 78</p>\n      <p>Offerten är giltig i 14 dagar</p>\n    </div>\n  </div>\n</body>\n</html>\n`;\n\nreturn {\n  to: customerInfo.email,\n  subject: `Offert ${booking.booking_number} - EventGaraget`,\n  html: htmlContent\n};"
+      },
+      "id": "3da0fd52-1ef6-4d83-92a2-8a5d22c1466d",
+      "name": "Format Booking Email1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "message": "={{$json.html}}",
+        "options": {}
+      },
+      "id": "8067e06e-854b-4e70-8a7b-c88d9498b9db",
+      "name": "Send Booking Email1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        864,
+        -400
+      ],
+      "webhookId": "108e5519-8b8b-46fc-96b4-2f77df50d937",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30lZheVCEHLNKsYy",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const supportResponse = $input.first().json.response;\n\n// Get data from other nodes using .all()[0] instead of .item\nconst parseAiItems = $('Parse AI Response1').all();\nconst customerInfo = parseAiItems[0].json.customer_info;\n\nconst extractEmailItems = $('Extract Email Data1').all();\nconst originalEmail = extractEmailItems[0].json;\n\nconst htmlContent = `\n<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: #2c3e50; color: white; padding: 20px; text-align: center; }\n    .content { padding: 20px; background: #f9f9f9; }\n    .footer { padding: 20px; text-align: center; font-size: 0.9em; color: #7f8c8d; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>EventGaraget</h1>\n    </div>\n    <div class=\"content\">\n      <p>Hej ${customerInfo.name || 'där'}!</p>\n      ${supportResponse.split('\\n').map(p => `<p>${p}</p>`).join('')}\n    </div>\n    <div class=\"footer\">\n      <p><strong>EventGaraget (TEST)</strong></p>\n      <p>📧 admin@striky.se | 📞 08-123 456 78</p>\n      <p>Vi finns här för dig!</p>\n    </div>\n  </div>\n</body>\n</html>\n`;\n\nreturn {\n  to: customerInfo.email,\n  subject: 'Re: ' + originalEmail.subject,\n  html: htmlContent\n};"
+      },
+      "id": "f437d807-257f-49da-a587-f0ad1b2c7558",
+      "name": "Format Support Email1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "message": "={{$json.html}}",
+        "options": {}
+      },
+      "id": "00d811ec-456b-487f-9424-627236fa4613",
+      "name": "Send Support Email1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        -208
+      ],
+      "webhookId": "912a3567-9860-485f-830f-206b45e44871",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30lZheVCEHLNKsYy",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge conversation response - Gmail uses UPPERCASE field names!\nconst conversationResponse = $input.first().json;\n\n// Get email data from Gmail (note: From, Subject, To are UPPERCASE!)\nconst gmailItems = $('Gmail Trigger - New Emails1').all();\nconst gmail = gmailItems[0].json;\n\n// Get AI data from Parse AI Response1\nconst parseAiItems = $('Parse AI Response1').all();\nconst aiData = parseAiItems[0].json;\n\nconst emailData = {\n  thread_id: gmail.threadId,\n  message_id: gmail.id,\n  from: gmail.From,     // ← Uppercase!\n  to: gmail.To,         // ← Uppercase!\n  subject: gmail.Subject, // ← Uppercase!\n  body: gmail.snippet || ''\n};\n\n// Return conversation response + metadata\nreturn {\n  ...conversationResponse,\n  _metadata: {\n    email: emailData,\n    ai: aiData\n  }\n};"
+      },
+      "id": "merge-conv-metadata-001",
+      "name": "Merge Conversation & Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        -592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare message log data - Gmail uses uppercase field names!\nconst conversation = $input.first().json;\n\n// Get Gmail data (note: From, Subject, To are UPPERCASE!)\nconst gmailItems = $('Gmail Trigger - New Emails1').all();\nconst gmail = gmailItems[0].json;\n\n// Get AI data\nconst parseAiItems = $('Parse AI Response1').all();\nconst aiData = parseAiItems[0].json;\n\n// Extract body from snippet or payload\nconst body = gmail.snippet || '';\n\nconst result = {\n  conversation_id: conversation.id,\n  message_id: gmail.id,\n  from_email: gmail.From,  // ← Uppercase!\n  to_email: gmail.To,      // ← Uppercase!\n  subject: gmail.Subject,  // ← Uppercase!\n  body: body,\n  body_plain: body,\n  direction: \"inbound\",\n  sentiment: aiData.sentiment || 0.5,\n  ai_classified_intent: aiData.classification,\n  ai_confidence: aiData.confidence || 0.5\n};\n\nconsole.log('✅ Message data:', JSON.stringify(result, null, 2));\n\nreturn result;"
+      },
+      "id": "prep-msg-data-001",
+      "name": "Prepare Message Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        -592
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json)}}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "dd3d7d1a-0573-4d6c-9b97-465d5a4583df",
+      "name": "Log Message1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -256,
+        -592
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare customer data - Gmail uses UPPERCASE field names!\nconst aiData = $input.first().json;\nconst customerInfo = aiData.customer_info || {};\n\n// Get email data from Gmail (note: From, Subject, To are UPPERCASE!)\nconst gmailItems = $('Gmail Trigger - New Emails1').all();\nconst gmail = gmailItems[0].json;\n\nconst emailData = {\n  thread_id: gmail.threadId,\n  message_id: gmail.id,\n  from: gmail.From,     // ← Uppercase!\n  to: gmail.To,         // ← Uppercase!\n  subject: gmail.Subject, // ← Uppercase!\n  body: gmail.snippet || ''\n};\n\nconsole.log('✅ Got email from Gmail Trigger:', emailData.from);\n\n// Prepare customer data for Supabase\nconst customerData = {\n  email: customerInfo.email,\n  name: customerInfo.name,\n  phone: customerInfo.phone || null,\n  company_name: customerInfo.company || null,\n  org_number: customerInfo.org_number || null,\n  last_contact_at: new Date().toISOString()\n};\n\nreturn {\n  ...customerData,\n  _metadata: {\n    email: emailData,\n    ai: aiData\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -992,
+        -448
+      ],
+      "id": "ac541a7d-f49b-44aa-bcb6-d98ce9237054",
+      "name": "Prepare Customer Data"
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "rules": [
+            {
+              "output": 0,
+              "conditions": {
+                "string": [
+                  {
+                    "value1": "={{$('Parse AI Response1').all()[0].json.classification}}",
+                    "operation": "regex",
+                    "value2": "quote_request|booking_request"
+                  }
+                ]
+              }
+            },
+            {
+              "output": 1,
+              "conditions": {
+                "string": [
+                  {
+                    "value1": "={{$('Parse AI Response1').all()[0].json.classification}}",
+                    "operation": "equals",
+                    "value2": "support_question"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "fallbackOutput": 0
+      },
+      "id": "e7f8g9h0-1234-5678-90ab-cdef12345678",
+      "name": "Router - Route to AI Agent",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        -592
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Router - Classification & Info Check": {
+      "main": [
+        [
+          {
+            "node": "📧 Format Follow-up Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Customer Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Customer Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Customer Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📧 Format Follow-up Email": {
+      "main": [
+        [
+          {
+            "node": "✉️ Send Follow-up Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger - New Emails1": {
+      "main": [
+        [
+          {
+            "node": "Extract Email Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create/Update Customer1": {
+      "main": [
+        [
+          {
+            "node": "Merge Customer & Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Customer & Metadata": {
+      "main": [
+        [
+          {
+            "node": "Prepare Conversation Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Conversation Data": {
+      "main": [
+        [
+          {
+            "node": "Create Conversation1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Conversation1": {
+      "main": [
+        [
+          {
+            "node": "Merge Conversation & Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Conversation & Metadata": {
+      "main": [
+        [
+          {
+            "node": "Prepare Message Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Message Data": {
+      "main": [
+        [
+          {
+            "node": "Log Message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Message1": {
+      "main": [
+        [
+          {
+            "node": "Router - Route to AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router - Route to AI Agent": {
+      "main": [
+        [
+          {
+            "node": "🤖 AI Agent - Quote Generator1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🤖 AI Agent - Support Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 AI Agent - Support Response1": {
+      "main": [
+        [
+          {
+            "node": "Format Support Email1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Price List1": {
+      "main": [
+        [
+          {
+            "node": "🤖 AI Agent - Quote Generator1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 AI Agent - Quote Generator1": {
+      "main": [
+        [
+          {
+            "node": "Prepare Booking Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Booking Data1": {
+      "main": [
+        [
+          {
+            "node": "Create Booking1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Booking1": {
+      "main": [
+        [
+          {
+            "node": "Prepare Products1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Products1": {
+      "main": [
+        [
+          {
+            "node": "Insert Products1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Products1": {
+      "main": [
+        [
+          {
+            "node": "Format Booking Email1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Booking Email1": {
+      "main": [
+        [
+          {
+            "node": "Send Booking Email1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Support Email1": {
+      "main": [
+        [
+          {
+            "node": "Send Support Email1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response1": {
+      "main": [
+        [
+          {
+            "node": "Router - Classification & Info Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 AI Agent - Email Classifier & Info Check": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Email Data1": {
+      "main": [
+        [
+          {
+            "node": "🔍 Fetch Customer History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Fetch Customer History": {
+      "main": [
+        [
+          {
+            "node": "📝 Format Customer Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📝 Format Customer Context": {
+      "main": [
+        [
+          {
+            "node": "Get FAQ Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get FAQ Data1": {
+      "main": [
+        [
+          {
+            "node": "Get Price List1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Price List1": {
+      "main": [
+        [
+          {
+            "node": "🤖 AI Agent - Email Classifier & Info Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Customer Data": {
+      "main": [
+        [
+          {
+            "node": "Create/Update Customer1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "58afd026-9353-47ed-86ff-c6272206e183",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4a88ff8272839a3037c3a37b8392227d54ce1cd60ae5d0250b6140753119fda2"
+  },
+  "id": "0jraE5fwpntupYeH",
+  "tags": []
+}

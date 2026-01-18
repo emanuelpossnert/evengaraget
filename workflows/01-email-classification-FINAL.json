@@ -1,0 +1,486 @@
+{
+  "name": "01 Email Classification",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {"item": [{"mode": "everyMinute"}]},
+        "filters": {"includeSpamTrash": false, "labelIds": ["INBOX"]}
+      },
+      "name": "gmailTrigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "a1",
+      "credentials": {"gmailOAuth2": {"id": "30lZheVCEHLNKsYy", "name": "Gmail account 2"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const gmailData = $input.first().json;\nconst emailMatch = gmailData.From.match(/<(.+?)>/) || gmailData.From.match(/([^\\s@]+@[^\\s@]+\\.[^\\s@]+)/);\nconst name = gmailData.From.split('<')[0].trim() || 'Kund';\nconst customerEmail = emailMatch ? emailMatch[1] : gmailData.From.trim();\nconsole.log('📧 Email from CUSTOMER:', customerEmail);\nreturn [{json: {thread_id: gmailData.threadId, message_id: gmailData.id, from: gmailData.From, agent_email: gmailData.To, subject: gmailData.Subject, body: gmailData.snippet || '', email_address: customerEmail, name: name}}];"
+      },
+      "name": "extractEmail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "a2"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "customers",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "email",
+              "condition": "eq",
+              "keyValue": "={{ $json.email_address }}"
+            }
+          ]
+        }
+      },
+      "name": "checkCustomer",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "id": "a3",
+      "alwaysOutputData": true,
+      "credentials": {"supabaseApi": {"id": "BapfQjee2z3IICBv", "name": "Eventgaraget"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('extractEmail').first().json;\nconst customerResponse = $input.all();\n\nconsole.log('📧 Email data:', email);\nconsole.log('👤 Customer response items:', customerResponse.length);\n\n// Native Supabase node returnerar items direkt\nif (customerResponse.length > 0 && customerResponse[0].json.id) {\n  const customerId = customerResponse[0].json.id;\n  console.log('✅ Customer EXISTS:', customerId, 'email:', customerResponse[0].json.email);\n  return [{json: {customer_id: customerId, is_new: false, ...email}}];\n}\n\nconsole.log('📝 NEW customer:', email.email_address);\nreturn [{json: {customer_id: null, is_new: true, ...email}}];"
+      },
+      "name": "checkOrCreate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "id": "a4"
+    },
+    {
+      "parameters": {
+        "url": "https://njiagzdssxoxycxraubf.supabase.co/rest/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "from_email", "value": "=eq.{{ $json.email_address }}"},
+            {"name": "select", "value": "*"},
+            {"name": "order", "value": "created_at.desc"},
+            {"name": "limit", "value": "5"}
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $credentials.serviceRole }}"},
+            {"name": "Authorization", "value": "=Bearer {{ $credentials.serviceRole }}"}
+          ]
+        },
+        "options": {}
+      },
+      "name": "fetchHistory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300],
+      "id": "a5",
+      "credentials": {"supabaseApi": {"id": "BapfQjee2z3IICBv", "name": "Eventgaraget"}}
+    },
+    {
+      "parameters": {
+        "documentId": {"__rl": true, "value": "1yiEYoKFYx-Y018NiL2sg54lXjq_CjJ1DGtbuVv1cGsw", "mode": "list"},
+        "sheetName": {"__rl": true, "value": 1874648354, "mode": "list"}
+      },
+      "name": "getPriceList",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1340, 300],
+      "id": "a6",
+      "credentials": {"googleSheetsOAuth2Api": {"id": "rImZoR2a92JfJBoa", "name": "Google Sheets account 2"}}
+    },
+    {
+      "parameters": {
+        "documentId": {"__rl": true, "value": "1gX3lQ5Ns5n5-cwqT4fAuU3Spcx86UtUPcUeWPNj2tAQ", "mode": "list"},
+        "sheetName": {"__rl": true, "value": 1663703534, "mode": "list"}
+      },
+      "name": "getFaq",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1560, 300],
+      "id": "a7",
+      "credentials": {"googleSheetsOAuth2Api": {"id": "rImZoR2a92JfJBoa", "name": "Google Sheets account 2"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const priceList = $('getPriceList').all().map(p => p.json);\nconst faqList = $('getFaq').all().map(f => f.json);\nconst email = $('checkOrCreate').first().json;\nconst history = $('fetchHistory').first().json;\nreturn [{json: {...email, priceList, faqList, history: Array.isArray(history) ? history : []}}];"
+      },
+      "name": "mergeData",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 300],
+      "id": "a8"
+    },
+    {
+      "parameters": {
+        "url": "https://njiagzdssxoxycxraubf.supabase.co/rest/v1/conversations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "gmail_thread_id", "value": "=eq.{{ $json.thread_id }}"},
+            {"name": "select", "value": "*"}
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $credentials.serviceRole }}"},
+            {"name": "Authorization", "value": "=Bearer {{ $credentials.serviceRole }}"}
+          ]
+        },
+        "options": {}
+      },
+      "name": "findConversation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 300],
+      "id": "a9",
+      "credentials": {"supabaseApi": {"id": "BapfQjee2z3IICBv", "name": "Eventgaraget"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('mergeData').first().json;\nconst convResponse = $input.first().json;\nlet conversationId = null;\nif (Array.isArray(convResponse) && convResponse.length > 0) {\n  conversationId = convResponse[0].id;\n  console.log('✅ Found conversation:', conversationId);\n  return [{json: {...email, conversation_id: conversationId, is_new: false}}];\n}\nconsole.log('📝 New conversation for:', email.email_address);\nreturn [{json: {...email, conversation_id: null, is_new: true}}];"
+      },
+      "name": "checkConversation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 300],
+      "id": "a10"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://njiagzdssxoxycxraubf.supabase.co/rest/v1/conversations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": "={{ JSON.stringify({gmail_thread_id: $json.thread_id, subject: $json.subject, status: 'active', type: 'general', assigned_to: 'ai_support', customer_id: $json.customer_id}) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $credentials.serviceRole }}"},
+            {"name": "Authorization", "value": "=Bearer {{ $credentials.serviceRole }}"},
+            {"name": "Prefer", "value": "return=representation"}
+          ]
+        },
+        "options": {}
+      },
+      "name": "createConversation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2440, 300],
+      "id": "a11",
+      "credentials": {"supabaseApi": {"id": "BapfQjee2z3IICBv", "name": "Eventgaraget"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('checkConversation').first().json;\nconst createResp = $input.first().json;\nlet convId = email.conversation_id;\nif (!convId && createResp) {\n  if (Array.isArray(createResp)) {\n    convId = createResp[0]?.id;\n  } else if (createResp.id) {\n    convId = createResp.id;\n  }\n}\nconsole.log('✅ Conv ID:', convId, 'Customer:', email.email_address);\nreturn [{json: {...email, conversation_id: convId}}];"
+      },
+      "name": "getFinalConvId",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2660, 300],
+      "id": "a12"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Du är EventGaragets kundsupportassistent. Din roll är att professionellt, personligt och korrekt hantera kundfrågor och bokningsförfrågningar.\n\n🎯 REGLER:\n1. Rekommendera **endast produkter som finns i prislistan**. Om produkten inte finns, säg det tydligt.\n2. Uppfinna aldrig nya produkter eller priser.\n3. Svara alltid vänligt, professionellt och personligt, anpassat efter kundens namn och situation.\n4. Föreslå alltid bästa alternativ baserat på kundens behov, om flera produkter passar.\n5. Om kunden frågar om leverans, installation, eller andra praktiska detaljer, ge korta, konkreta svar.\n6. Håll tonen vänlig och tydlig, undvik tekniskt jargon.\n\n📦 PRODUKTER:\n{{ $json.priceList.map(p => `• ${p.Name || p.name}: ${p['Price Per Day'] || p.price_per_day} SEK/dag`).join('\\n') }}\n\nℹ️ FAQ:\n{{ $json.faqList.map(f => `• ${f.Question || f.question}: ${f.Answer || f.answer}`).join('\\n') }}\n\n💬 KONVERSATION:\nFrån kund: {{ $json.body }}\n\n📌 SVAR:\nSvara på kundens frågor. Om detta är en **bokningsförfrågan** (kund vill hyra produkter för ett event), returnera ett JSON-svar enligt detta format:\n\n{\n  \"response\": \"<Your customer-friendly response>\",\n  \"is_booking\": true,\n  \"booking_request\": {\n    \"products\": [\n      {\n        \"name\": \"Partytält 4x4m\",\n        \"quantity\": 1,\n        \"wrapping_requested\": false,\n        \"daily_rate\": 1800\n      }\n    ],\n    \"event_date\": \"2025-11-04\",\n    \"event_end_date\": \"2025-11-04\",\n    \"location\": \"Stockholm\",\n    \"phone\": \"+46701234567 eller null\",\n    \"company_name\": \"Company Name eller null\"\n  }\n}\n\nOm detta är INTE en bokningsförfrågan (bara frågor/support), returnera:\n{\n  \"response\": \"<Your response>\",\n  \"is_booking\": false\n}\n\n⚠️ VIKTIGT:\n- Extrahera ENDAST de uppgifter kunden redan angett\n- Sätt värden till null om de inte är namngivna\n- Om kund nämner produkter som inte finns i listan, ställ en följdfråga eller erbjud alternativ\n- Returnera ENDAST JSON, inget annat text",
+              "role": "system"
+            },
+            {
+              "content": "=Från: {{ $json.name }}\nÄmne: {{ $json.subject }}\nMeddelande: {{ $json.body }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 800,
+          "temperature": 0.7
+        }
+      },
+      "name": "aiResponse1",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [4496, 1888],
+      "id": "52333e06-2fdc-4ab7-bf1d-2c413be2cfd2",
+      "credentials": {"openAiApi": {"id": "erTJVf7Uoi3QApUy", "name": "OpenAi account 2"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $input.first().json;\n\nlet responseText = '';\n\n// Extrahera BARA response-texten från JSON\nif (aiResponse.message?.content) {\n  try {\n    const parsed = JSON.parse(aiResponse.message.content);\n    responseText = parsed.response || aiResponse.message.content;\n  } catch (e) {\n    responseText = aiResponse.message.content;\n  }\n} else if (aiResponse.choices?.[0]?.message?.content) {\n  try {\n    const parsed = JSON.parse(aiResponse.choices[0].message.content);\n    responseText = parsed.response || aiResponse.choices[0].message.content;\n  } catch (e) {\n    responseText = aiResponse.choices[0].message.content;\n  }\n} else if (aiResponse.response) {\n  responseText = aiResponse.response;\n} else if (typeof aiResponse === 'string') {\n  try {\n    const parsed = JSON.parse(aiResponse);\n    responseText = parsed.response || aiResponse;\n  } catch (e) {\n    responseText = aiResponse;\n  }\n} else {\n  responseText = JSON.stringify(aiResponse);\n}\n\nresponseText = (responseText || '').toString().trim();\n\nconst emailData = $('getFinalConvId').first().json;\n\nif (!emailData.email_address) {\n  throw new Error('CRITICAL: email_address missing!');\n}\n\n// Splitta vid meningar och gör nya rader\nconst sentences = responseText\n  .replace(/([.!?])\\s+/g, '$1\\n')\n  .split('\\n')\n  .filter(s => s.trim().length > 0);\n\n// Din EventGaraget logga (Base64)\nconst logoBase64 = \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUAAAACRCAYAAACyhWGUAAAABHNCSVQICAgIfAhkiAAAAF96VFh0UmF3IHByb2ZpbGUgdHlwZSBBUFAxAAAImeNKT81LLcpMVigoyk/LzEnlUgADYxMuE0sTS6NEAwMDCwMIMDQwMDYEkkZAtjlUKNEABZgamFmaGZsZmgMxiM8FAEi2FMk61EMyAAAgAElEQVR4nOx9eZwVxbX/91R1931nZRgYdgYQUAEBQRQJGKOiiRq3qFFJNBo1UfPiy2beMy7RPKM/9+S5RKNGTfJCYl4UNUZFUUFBkH2RRdZh9n3u1t1V5/dHfd+5jAMhiUk0b86HYebeXupUdfe3vmep00Cf9Emf/MOEmenRRx+dxMxxZiZmpn+2Tv+XRfyzFeiTPvmIhAHQ9COn/+KDbR9cnMvlypRS8JTCcnyV61+V0xCmryMUm0/hxH5/HcyS5M9nJZcXfvDGt9gqjFNr7YYRCqsKKz3aXJRZeZO1/6VhF3DPrIvpONi+u7KyhHpI3W+lRjwgQEJJr8WGgBhJ8F59LWp2lqFPZ8JFCrJY2F4EQsI5ExVYhDGb5vbwCCp1f6D3mO1TdvZYmHfbGEpQDaXp9B8KJgw85QhHxIgXMUGDBpTkJwMfVPZqxWfHfJFJBG7Ng9hPqmKsKvj3XhVN3XzEZ3VLdWxStEZgUoWjIGh1AJ0FJt1SqVz6GJ5+L1K2cH7F/8AuTJCJxY2OY";\n\n// Bygg HTML med meddelande + signatur\nconst htmlContent = `<div style=\"font-family: Arial, sans-serif; line-height: 1.8; color: #333;\">\n  <div>\n${sentences.map(sentence => `    <p style=\"margin: 10px 0;\">${sentence.trim()}</p>`).join('')}\n  </div>\n  \n  <div style=\"margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666;\">\n    <img src=\"${logoBase64}\" alt=\"EventGaraget\" style=\"height: 40px; margin-bottom: 10px; display: block;\">\n    \n    <p style=\"margin: 5px 0; font-weight: bold;\">Vänliga hälsningar / Best regards,</p>\n    <p style=\"margin: 5px 0;\">Kundtjänst</p>\n    <p style=\"margin: 15px 0 5px 0; font-weight: bold; color: #0066cc;\">EVENTGARAGET</p>\n    <p style=\"margin: 5px 0;\">\n      📧 booking@eventgaraget.se<br>\n      🌐 <a href=\"https://eventgaraget.se\" style=\"color: #0066cc; text-decoration: none;\">Eventgaraget.se</a>\n    </p>\n    <p style=\"margin: 10px 0; font-style: italic; color: #999;\">\n      Se vårt utbud och inspo på Eventgaraget.se\n    </p>\n  </div>\n</div>`;\n\nreturn [{json: {\n  to: emailData.email_address,\n  subject: `Re: ${emailData.subject}`, \n  html: htmlContent,\n  responseText: responseText,\n  conversation_id: emailData.conversation_id,\n  message_id: emailData.message_id,\n  agent_email: emailData.agent_email,\n  body: emailData.body,\n  email_address: emailData.email_address\n}}];"
+      },
+      "name": "formatEmail1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4848, 1888],
+      "id": "fd2acbef-3212-4388-a25d-f9dd542eaf5e"
+    },
+    {
+      "parameters": {
+        "jsCode": "const emailData = $input.first().json;\n\nconsole.log('🔍 Parsing booking data...');\nconsole.log('📊 Booking data:', JSON.stringify(emailData.booking_data, null, 2));\n\nif (!emailData.booking_data) {\n  return [{json: {is_booking_request: false, ...emailData}}];\n}\n\nconst booking = emailData.booking_data;\n\n// Validera att vi har minsta information\nif (!booking.products || booking.products.length === 0) {\n  console.log('⚠️ No products in booking request');\n  return [{json: {is_booking_request: false, ...emailData}}];\n}\n\n// Beräkna total pris\nconst totalPrice = booking.products.reduce((sum, p) => {\n  let productTotal = (p.daily_rate || 0) * (p.quantity || 1);\n  if (p.wrapping_requested) productTotal += 2500; // Wrapping cost\n  return sum + productTotal;\n}, 0);\n\nconsole.log('✅ Valid booking request - Total: ' + totalPrice + ' SEK');\n\nreturn [{\n  json: {\n    is_booking_request: true,\n    event_date: booking.event_date || null,\n    event_end_date: booking.event_end_date || null,\n    location: booking.location || null,\n    products_requested: booking.products || [],\n    wrapping_selected: booking.products.filter(p => p.wrapping_requested) || [],\n    phone: booking.phone || null,\n    company_name: booking.company_name || null,\n    total_estimated_price: totalPrice,\n    ...emailData\n  }\n}];"
+      },
+      "name": "parseBookingData",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [5072, 1888],
+      "id": "parse-booking-node",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "booking-route-1",
+              "leftValue": "={{ $json.is_booking_request }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [5296, 1888],
+      "id": "route-booking-node",
+      "name": "routeByType",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "tableId": "bookings",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.customer_id }}"
+            },
+            {
+              "fieldId": "conversation_id",
+              "fieldValue": "={{ $json.conversation_id }}"
+            },
+            {
+              "fieldId": "event_date",
+              "fieldValue": "={{ $json.event_date }}"
+            },
+            {
+              "fieldId": "event_end_date",
+              "fieldValue": "={{ $json.event_end_date }}"
+            },
+            {
+              "fieldId": "location",
+              "fieldValue": "={{ $json.location }}"
+            },
+            {
+              "fieldId": "products_requested",
+              "fieldValue": "={{ JSON.stringify($json.products_requested) }}"
+            },
+            {
+              "fieldId": "wrapping_selected",
+              "fieldValue": "={{ JSON.stringify($json.wrapping_selected) }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "pending_quotation"
+            },
+            {
+              "fieldId": "total_estimated_price",
+              "fieldValue": "={{ $json.total_estimated_price }}"
+            }
+          ]
+        }
+      },
+      "name": "saveBooking",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [5520, 1888],
+      "id": "save-booking-node",
+      "credentials": {"supabaseApi": {"id": "BapfQjee2z3IICBv", "name": "Eventgaraget"}}
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $env.QUOTATION_WORKFLOW_ID || 'REPLACE_WITH_QUOTATION_WF_ID' }}",
+        "options": {}
+      },
+      "name": "triggerQuotationWorkflow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [5744, 1888],
+      "id": "trigger-quotation-node"
+    },
+    {
+      "parameters": {
+        "tableId": "incoming_emails",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "conversation_id",
+              "fieldValue": "={{ $json.conversation_id }}"
+            },
+            {
+              "fieldId": "message_id",
+              "fieldValue": "={{ $json.message_id }}"
+            },
+            {
+              "fieldId": "from_email",
+              "fieldValue": "={{ $json.from_email }}"
+            },
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $json.subject }}"
+            },
+            {
+              "fieldId": "body",
+              "fieldValue": "={{ $json.body }}"
+            },
+            {
+              "fieldId": "is_booking_request",
+              "fieldValue": "={{ $json.is_booking_request }}"
+            },
+            {
+              "fieldId": "booking_data",
+              "fieldValue": "={{ JSON.stringify($json.booking_data) }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.customer_id }}"
+            },
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "name": "saveIncoming",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [5968, 1888],
+      "id": "save-incoming-node",
+      "credentials": {"supabaseApi": {"id": "BapfQjee2z3IICBv", "name": "Eventgaraget"}}
+    },
+    {
+      "parameters": {
+        "tableId": "outgoing_emails",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "conversation_id",
+              "fieldValue": "={{ $json.conversation_id }}"
+            },
+            {
+              "fieldId": "message_id",
+              "fieldValue": "={{ $json.message_id }}"
+            },
+            {
+              "fieldId": "to_email",
+              "fieldValue": "={{ $json.to }}"
+            },
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $json.subject }}"
+            },
+            {
+              "fieldId": "body",
+              "fieldValue": "={{ $json.body }}"
+            },
+            {
+              "fieldId": "is_booking_request",
+              "fieldValue": "={{ $json.is_booking_request }}"
+            },
+            {
+              "fieldId": "booking_data",
+              "fieldValue": "={{ JSON.stringify($json.booking_data) }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.customer_id }}"
+            },
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "name": "saveOutgoing",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [6192, 1888],
+      "id": "save-outgoing-node",
+      "credentials": {"supabaseApi": {"id": "BapfQjee2z3IICBv", "name": "Eventgaraget"}}
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $env.EMAIL_WORKFLOW_ID || 'REPLACE_WITH_EMAIL_WF_ID' }}",
+        "options": {}
+      },
+      "name": "sendEmail1",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [6416, 1888],
+      "id": "send-email-node"
+    }
+  ],
+  "connections": {
+    "gmailTrigger": {"main": [[{"node": "extractEmail", "type": "main", "index": 0}]]},
+    "extractEmail": {"main": [[{"node": "checkCustomer", "type": "main", "index": 0}]]},
+    "checkCustomer": {"main": [[{"node": "checkOrCreate", "type": "main", "index": 0}]]},
+    "checkOrCreate": {"main": [[{"node": "fetchHistory", "type": "main", "index": 0}]]},
+    "fetchHistory": {"main": [[{"node": "getPriceList", "type": "main", "index": 0}]]},
+    "getPriceList": {"main": [[{"node": "getFaq", "type": "main", "index": 0}]]},
+    "getFaq": {"main": [[{"node": "mergeData", "type": "main", "index": 0}]]},
+    "mergeData": {"main": [[{"node": "findConversation", "type": "main", "index": 0}]]},
+    "findConversation": {"main": [[{"node": "checkConversation", "type": "main", "index": 0}]]},
+    "checkConversation": {"main": [[{"node": "createConversation", "type": "main", "index": 0}]]},
+    "createConversation": {"main": [[{"node": "getFinalConvId", "type": "main", "index": 0}]]},
+    "getFinalConvId": {"main": [[{"node": "aiResponse1", "type": "main", "index": 0}]]},
+    "aiResponse1": {"main": [[{"node": "formatEmail1", "type": "main", "index": 0}]]},
+    "formatEmail1": {"main": [[{"node": "sendEmail1", "type": "main", "index": 0}, {"node": "prepareIncoming", "type": "main", "index": 0}, {"node": "prepareOutgoing", "type": "main", "index": 0}, {"node": "parseBookingData", "type": "main", "index": 0}]]},
+    "parseBookingData": {"main": [[{"node": "routeByType", "type": "main", "index": 0}]]},
+    "routeByType": {"main": [[{"node": "saveBooking", "type": "main", "index": 0}], []]},
+    "saveBooking": {"main": [[{"node": "triggerQuotationWorkflow", "type": "main", "index": 0}]]},
+    "triggerQuotationWorkflow": {"main": [[]]},
+    "prepareIncoming": {"main": [[{"node": "saveIncoming", "type": "main", "index": 0}]]},
+    "prepareOutgoing": {"main": [[{"node": "saveOutgoing", "type": "main", "index": 0}]]},
+    "sendEmail1": {"main": [[]]},
+    "saveIncoming": {"main": [[]]},
+    "saveOutgoing": {"main": [[]]}
+  },
+  "pinData": {},
+  "settings": {},
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0
+}

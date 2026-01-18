@@ -1,0 +1,5 @@
+{
+  "node": "checkOrCreate (FIXED)",
+  "code": "const email = $('extractEmail1').first().json;\nconst customerResponse = $input.all();\n\nconsole.log('=== DEBUG checkOrCreate ===');\nconsole.log('📧 Checking for customer:', email.email_address);\nconsole.log('📊 Response items:', customerResponse.length);\n\nif (customerResponse.length > 0 && customerResponse[0].json.id) {\n  const customerId = customerResponse[0].json.id;\n  console.log('✅ Customer EXISTS:', customerId);\n  return [{\n    json: {\n      customer_id: customerId,\n      is_new: false,  // ← BOOLEAN, not string!\n      ...email\n    }\n  }];\n}\n\nconsole.log('📝 NEW customer - will create:', email.email_address);\nreturn [{\n  json: {\n    customer_id: null,\n    is_new: true,  // ← BOOLEAN, not string!\n    ...email\n  }\n}];"
+}
+

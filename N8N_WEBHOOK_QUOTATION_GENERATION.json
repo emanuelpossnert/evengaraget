@@ -1,0 +1,36 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "quotation-generation",
+        "options": {}
+      },
+      "id": "e4b375fc-5ca8-4659-a67f-0766bae7644f",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -528,
+        96
+      ],
+      "webhookId": "quotation-webhook",
+      "alwaysOutputData": true,
+      "executeOnce": true
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6288087c4d4147e323c471920f80cf4d9f0267d1aed95da4bc5de914decf3e9f"
+  },
+  "webhook_url": "https://reita-orthostichous-imagistically.ngrok-free.dev/webhook/quotation-generation",
+  "note": "Denna URL ska registreras i Supabase webhook-konfigurationen"
+}

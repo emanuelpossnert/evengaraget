@@ -1,0 +1,150 @@
+{
+  "name": "Send Customer Email - Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "send-customer-email",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -416,
+        224
+      ],
+      "id": "webhook-send-customer-email",
+      "webhookId": "27cb8f50-d009-49da-a6f0-aebca1c17af7",
+      "alwaysOutputData": true,
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "resource": "customer",
+        "operation": "get",
+        "supabaseTable": "customers",
+        "where": [
+          {
+            "column": "id",
+            "condition": "is",
+            "value": "{{ $json.customer_id }}"
+          }
+        ]
+      },
+      "name": "Get Customer Details",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        224
+      ],
+      "id": "get-customer-details"
+    },
+    {
+      "parameters": {
+        "resource": "email",
+        "operation": "sendEmail",
+        "toEmail": "{{ $json.recipient_email }}",
+        "subject": "{{ $json.subject }}",
+        "htmlBody": "{{ $json.body_html }}",
+        "textBody": "{{ $json.body_plain }}"
+      },
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        0,
+        224
+      ],
+      "id": "send-email"
+    },
+    {
+      "parameters": {
+        "resource": "email",
+        "operation": "create",
+        "supabaseTable": "outgoing_emails",
+        "columns": {
+          "customer_id": "{{ $json.customer_id }}",
+          "recipient_email": "{{ $json.recipient_email }}",
+          "subject": "{{ $json.subject }}",
+          "body_html": "{{ $json.body_html }}",
+          "body_plain": "{{ $json.body_plain }}",
+          "email_type": "{{ $json.email_type }}",
+          "status": "sent",
+          "sent_at": "NOW()"
+        }
+      },
+      "name": "Log Email",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        200,
+        224
+      ],
+      "id": "log-email"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        400,
+        224
+      ],
+      "id": "respond-to-webhook"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Customer Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Customer Details": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Log Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Email": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "instanceId": "4a88ff8272839a3037c3a37b8392227d54ce1cd60ae5d0250b6140753119fda2"
+  }
+}
+

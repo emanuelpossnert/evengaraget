@@ -1,0 +1,305 @@
+{
+  "name": "Webhook-Polling",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "intervalValue": 30,
+              "triggerUnit": "seconds"
+            }
+          ]
+        }
+      },
+      "id": "1",
+      "name": "Schedule: Every 30s",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "List",
+        "operation": "getAll",
+        "tableId": "webhook_logs",
+        "returnAll": true
+      },
+      "id": "2",
+      "name": "Get Pending Webhooks",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter pending webhooks (success = false)\nconst items = $input.all();\nconst pending = items.filter(item => item.json.success === false);\n\nif (pending.length === 0) {\n  console.log('✅ No pending webhooks');\n  return [];\n}\n\nconsole.log(`🔄 Processing ${pending.length} pending webhooks`);\npending.forEach((item, i) => {\n  console.log(`  ${i + 1}. ${item.json.event_type} - ${item.json.webhook_name}`);\n});\n\nreturn pending.slice(0, 10);"
+      },
+      "id": "3",
+      "name": "Filter Pending",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "loopExpression": "={{ $json }}"
+      },
+      "id": "4",
+      "name": "Loop Each",
+      "type": "n8n-nodes-base.loop",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.event_type }}",
+              "rightValue": "booking_confirmed",
+              "operator": {
+                "type": "string",
+                "value": "="
+              }
+            }
+          ]
+        }
+      },
+      "id": "5",
+      "name": "Is Booking?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        200,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.event_type }}",
+              "rightValue": "email_sent",
+              "operator": {
+                "type": "string",
+                "value": "="
+              }
+            }
+          ]
+        }
+      },
+      "id": "6",
+      "name": "Is Email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        200,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://{{ $env.N8N_INSTANCE_HOST }}/webhook/booking-confirmation",
+        "method": "POST",
+        "options": {}
+      },
+      "id": "7",
+      "name": "Call Booking",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [
+        400,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://{{ $env.N8N_INSTANCE_HOST }}/webhook/send-email",
+        "method": "POST",
+        "options": {}
+      },
+      "id": "8",
+      "name": "Call Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [
+        400,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "Row",
+        "operation": "update",
+        "tableId": "webhook_logs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "success",
+              "fieldValue": true
+            },
+            {
+              "fieldId": "response",
+              "fieldValue": "Processed"
+            }
+          ]
+        }
+      },
+      "id": "9",
+      "name": "Mark Success",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        600,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      },
+      "onError": "continueRegardlessly"
+    }
+  ],
+  "connections": {
+    "Schedule: Every 30s": {
+      "main": [
+        [
+          {
+            "node": "Get Pending Webhooks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending Webhooks": {
+      "main": [
+        [
+          {
+            "node": "Filter Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Pending": {
+      "main": [
+        [
+          {
+            "node": "Loop Each",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Each": {
+      "main": [
+        [
+          {
+            "node": "Is Booking?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is Email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Booking?": {
+      "main": [
+        [
+          {
+            "node": "Call Booking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Email?": {
+      "main": [
+        [
+          {
+            "node": "Call Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Booking": {
+      "main": [
+        [
+          {
+            "node": "Mark Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Email": {
+      "main": [
+        [
+          {
+            "node": "Mark Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}

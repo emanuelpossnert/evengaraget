@@ -1,0 +1,147 @@
+// CONNECTIONS FIX - Ersätt "connections"-sektionen i ditt n8n-workflow
+
+"connections": {
+  "checkCustomer": {
+    "main": [[{"node": "checkOrCreate", "type": "main", "index": 0}]]
+  },
+  "checkOrCreate": {
+    "main": [[{"node": "fetchHistory", "type": "main", "index": 0}]]
+  },
+  "fetchHistory": {
+    "main": [[{"node": "routeCustomer", "type": "main", "index": 0}]]
+  },
+  "findConversation": {
+    "main": [[{"node": "checkConversation", "type": "main", "index": 0}]]
+  },
+  "checkConversation": {
+    "main": [[{"node": "routeConversation", "type": "main", "index": 0}]]
+  },
+  "createConversation": {
+    "main": [[{"node": "getFinalConvId", "type": "main", "index": 0}]]
+  },
+  "getFinalConvId": {
+    "main": [[{"node": "updateCustomerData", "type": "main", "index": 0}]]
+  },
+  "prepareIncoming": {
+    "main": [[{"node": "saveIncoming", "type": "main", "index": 0}]]
+  },
+  "prepareOutgoing": {
+    "main": [[{"node": "saveOutgoing", "type": "main", "index": 0}]]
+  },
+  "gmailTrigger1": {
+    "main": [[{"node": "extractEmail1", "type": "main", "index": 0}]]
+  },
+  "extractEmail1": {
+    "main": [[{"node": "checkCustomer", "type": "main", "index": 0}]]
+  },
+  "mergeData1": {
+    "main": [[{"node": "findConversation", "type": "main", "index": 0}]]
+  },
+  
+  // ✅ AI RESPONSE - Split to THREE paths:
+  "aiResponse1": {
+    "main": [
+      [
+        {"node": "extractBookingNumber", "type": "main", "index": 0},  // Path 1: Booking lookup detection
+        {"node": "parseBooking", "type": "main", "index": 0}            // Path 2: Booking data extraction
+      ]
+    ]
+  },
+  
+  // ✅ EXTRACT BOOKING NUMBER → Router
+  "extractBookingNumber": {
+    "main": [[{"node": "routeBookingLookup", "type": "main", "index": 0}]]
+  },
+  
+  // ✅ ROUTE BOOKING LOOKUP → Two paths
+  "routeBookingLookup": {
+    "main": [
+      [{"node": "getBookingDetails", "type": "main", "index": 0}],  // True: Is booking lookup
+      [{"node": "formatEmail1", "type": "main", "index": 0}]        // False: Regular response
+    ]
+  },
+  
+  // ✅ GET BOOKING DETAILS → BUILD RESPONSE → FORMAT EMAIL
+  "getBookingDetails": {
+    "main": [[{"node": "buildBookingResponse", "type": "main", "index": 0}]]
+  },
+  "buildBookingResponse": {
+    "main": [[{"node": "formatEmail1", "type": "main", "index": 0}]]
+  },
+  
+  // ✅ PARSE BOOKING → SAVE BOOKING → FORMAT EMAIL
+  "parseBooking": {
+    "main": [[{"node": "saveBooking", "type": "main", "index": 0}]]
+  },
+  "saveBooking": {
+    "main": [[{"node": "formatEmail1", "type": "main", "index": 0}]]
+  },
+  
+  // ✅ FORMAT EMAIL → SEND + PREPARE MESSAGES
+  "formatEmail1": {
+    "main": [
+      [
+        {"node": "sendEmail1", "type": "main", "index": 0},
+        {"node": "prepareIncoming", "type": "main", "index": 0},
+        {"node": "prepareOutgoing", "type": "main", "index": 0}
+      ]
+    ]
+  },
+  
+  // ✅ SAVE MESSAGES
+  "prepareIncoming": {
+    "main": [[{"node": "saveIncoming", "type": "main", "index": 0}]]
+  },
+  "prepareOutgoing": {
+    "main": [[{"node": "saveOutgoing", "type": "main", "index": 0}]]
+  },
+  
+  // ✅ CUSTOMER ROUTING
+  "routeCustomer": {
+    "main": [
+      [{"node": "passCustomerData", "type": "main", "index": 0}],  // New customer
+      [{"node": "get faq", "type": "main", "index": 0}]            // Existing customer
+    ]
+  },
+  "passCustomerData": {
+    "main": [[{"node": "createCustomer", "type": "main", "index": 0}]]
+  },
+  "createCustomer": {
+    "main": [[{"node": "extractCustomerId", "type": "main", "index": 0}]]
+  },
+  "extractCustomerId": {
+    "main": [[{"node": "get faq", "type": "main", "index": 0}]]
+  },
+  
+  // ✅ GET FAQ → GET PRODUCTS → MERGE DATA
+  "get faq": {
+    "main": [[{"node": "getProducts", "type": "main", "index": 0}]]
+  },
+  "getProducts": {
+    "main": [[{"node": "mergeData1", "type": "main", "index": 0}]]
+  },
+  
+  // ✅ CONVERSATION ROUTING
+  "routeConversation": {
+    "main": [
+      [{"node": "getFinalConvId", "type": "main", "index": 0}],      // Exists
+      [{"node": "createConversation", "type": "main", "index": 0}]   // Create new
+    ]
+  },
+  
+  // ✅ SEND EMAIL (end node)
+  "sendEmail1": {
+    "main": [[]]
+  },
+  
+  // ✅ SAVE MESSAGES (end nodes)
+  "saveIncoming": {
+    "main": [[]]
+  },
+  "saveOutgoing": {
+    "main": [[]]
+  },
+  
+  // ❌ REMOVE classifyIntent1 AND router1 - NOT NEEDED!
+}
+

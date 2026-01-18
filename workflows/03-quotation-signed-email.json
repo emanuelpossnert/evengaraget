@@ -1,0 +1,107 @@
+{
+  "name": "03-Quotation Signed Email",
+  "description": "Triggered when quotation is signed - sends PDF to customer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "quotation-signed",
+        "options": {}
+      },
+      "id": "webhook-signed",
+      "name": "Webhook - Quotation Signed",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -1312,
+        -112
+      ],
+      "webhookId": "quotation-signed"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract webhook data\nconst data = $('Webhook - Quotation Signed').first().json.body;\n\nconsole.log('📬 Quotation signed:', {\n  quotation_id: data.quotation_id,\n  customer_email: data.customer_email,\n  customer_name: data.customer_name,\n  has_pdf: !!data.pdf_url,\n});\n\nreturn [{\n  json: {\n    quotation_id: data.quotation_id,\n    booking_id: data.booking_id,\n    booking_number: data.booking_number,\n    customer_email: data.customer_email,\n    customer_name: data.customer_name,\n    total_amount: data.total_amount,\n    signed_at: data.signed_at,\n    pdf_url: data.pdf_url,\n  }\n}];"
+      },
+      "id": "extract-data",
+      "name": "Extract Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1104,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "to": "{{ $json.customer_email }}",
+        "subject": "📋 Din signerade offert från EventGaraget - {{ $json.booking_number }}",
+        "message": "<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;\">\n  <div style=\"background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;\">\n    <h1 style=\"margin: 0; font-size: 28px;\">✅ Offert Signerad!</h1>\n    <p style=\"margin: 10px 0 0 0; font-size: 14px; opacity: 0.9;\">Din bokningsbekräftelse är nu slutförd</p>\n  </div>\n  \n  <div style=\"background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);\">\n    <h2 style=\"color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px;\">Tack för din bokning!</h2>\n    \n    <p>Hej {{ $json.customer_name }},</p>\n    \n    <p>Du har framgångsrikt signerat din offert för bokningsnummer <strong>{{ $json.booking_number }}</strong>.</p>\n    \n    <div style=\"background: #f0f4ff; padding: 20px; border-left: 4px solid #667eea; margin: 20px 0;\">\n      <h3 style=\"margin-top: 0;\">📊 Sammanfattning</h3>\n      <p><strong>Bokningsnummer:</strong> {{ $json.booking_number }}</p>\n      <p><strong>Totalt belopp:</strong> {{ $json.total_amount }} SEK</p>\n      <p><strong>Signerad:</strong> {{ $json.signed_at | formatDate('sv-SE') }}</p>\n    </div>\n    \n    <div style=\"margin: 30px 0;\">\n      <h3>📄 Din Offert</h3>\n      <p>Du kan hämta din signerade offert här:</p>\n      <a href=\"{{ $json.pdf_url }}\" style=\"display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 10px 0;\">📥 Hämta PDF</a>\n    </div>\n    \n    <div style=\"background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 30px 0;\">\n      <h3 style=\"margin-top: 0;\">Vad händer nu?</h3>\n      <ol style=\"margin-bottom: 0;\">\n        <li>Vi bekräftar din bokning</li>\n        <li>Du får en faktura per email</li>\n        <li>Vi kontaktar dig med leveransdetaljer</li>\n        <li>Vi förberedeer din event</li>\n      </ol>\n    </div>\n    \n    <hr style=\"border: none; border-top: 1px solid #eee; margin: 30px 0;\">\n    \n    <div style=\"text-align: center; font-size: 12px; color: #999;\">\n      <p>EventGaraget AB | booking@eventgaraget.se</p>\n      <p>www.eventgaraget.se | Tel: +46 (0) XXX XXX XXX</p>\n    </div>\n  </div>\n</div>",
+        "includeHtml": true
+      },
+      "id": "send-email",
+      "name": "Send Email to Customer",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        -832,
+        -112
+      ],
+      "credentials": {
+        "gmailOAuth2": "{{GMAIL_OAUTH_CREDENTIAL_ID}}"
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Send Email to Customer').first().json;\n\nconsole.log('✅ Email sent successfully');\nconsole.log('Email ID:', data.id);\nconsole.log('To:', data.message);\n\nreturn [{\n  json: {\n    success: true,\n    email_id: data.id,\n    customer_email: $json.customer_email,\n    quotation_id: $json.quotation_id,\n    timestamp: new Date().toISOString(),\n  }\n}];"
+      },
+      "id": "success-log",
+      "name": "Success Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -624,
+        -112
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Quotation Signed": {
+      "main": [
+        [
+          {
+            "node": "Extract Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Data": {
+      "main": [
+        [
+          {
+            "node": "Send Email to Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email to Customer": {
+      "main": [
+        [
+          {
+            "node": "Success Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "production"
+  }
+}

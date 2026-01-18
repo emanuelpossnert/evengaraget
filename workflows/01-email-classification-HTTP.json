@@ -1,0 +1,387 @@
+{
+  "name": "01 Email Classification (HTTP)",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {"item": [{"mode": "everyMinute"}]},
+        "filters": {"includeSpamTrash": false, "labelIds": ["INBOX"]}
+      },
+      "name": "gmailTrigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "a1",
+      "credentials": {"gmailOAuth2": {"id": "30lZheVCEHLNKsYy", "name": "Gmail account 2"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const gmailData = $input.first().json;\nconst emailMatch = gmailData.From.match(/<(.+?)>/) || gmailData.From.match(/([^\\s@]+@[^\\s@]+\\.[^\\s@]+)/);\nconst name = gmailData.From.split('<')[0].trim() || 'Kund';\nconst customerEmail = emailMatch ? emailMatch[1] : gmailData.From.trim();\nconsole.log('📧 Email from CUSTOMER:', customerEmail);\nreturn [{json: {thread_id: gmailData.threadId, message_id: gmailData.id, from: gmailData.From, agent_email: gmailData.To, subject: gmailData.Subject, body: gmailData.snippet || '', email_address: customerEmail, name: name}}];"
+      },
+      "name": "extractEmail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "a2"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/customers",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "email", "value": "=eq.{{ $json.email_address }}"},
+            {"name": "select", "value": "*"}
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $credentials.serviceRole }}"},
+            {"name": "Prefer", "value": "return=representation"}
+          ]
+        },
+        "options": {}
+      },
+      "name": "checkCustomer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 300],
+      "id": "a3",
+      "credentials": {"supabaseApi": {"id": "Jn3pqBF4p98BZlo7", "name": "Supabase account"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('extractEmail').first().json;\nconst customerResponse = $input.first().json;\nconst customerExists = Array.isArray(customerResponse) && customerResponse.length > 0;\nlet customerId = null;\nif (customerExists) {\n  customerId = customerResponse[0].id;\n  console.log('✅ Customer found:', customerId);\n  return [{json: {customer_id: customerId, is_new: false, ...email}}];\n}\nconsole.log('📝 New customer:', email.email_address);\nreturn [{json: {customer_id: null, is_new: true, ...email}}];"
+      },
+      "name": "checkOrCreate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "id": "a4"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "from_email", "value": "=eq.{{ $json.email_address }}"},
+            {"name": "select", "value": "*"},
+            {"name": "order", "value": "created_at.desc"},
+            {"name": "limit", "value": "5"}
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $credentials.serviceRole }}"}
+          ]
+        },
+        "options": {}
+      },
+      "name": "fetchHistory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1120, 300],
+      "id": "a5",
+      "credentials": {"supabaseApi": {"id": "Jn3pqBF4p98BZlo7", "name": "Supabase account"}}
+    },
+    {
+      "parameters": {
+        "documentId": {"__rl": true, "value": "1yiEYoKFYx-Y018NiL2sg54lXjq_CjJ1DGtbuVv1cGsw", "mode": "list"},
+        "sheetName": {"__rl": true, "value": 1874648354, "mode": "list"}
+      },
+      "name": "getPriceList",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1340, 300],
+      "id": "a6",
+      "credentials": {"googleSheetsOAuth2Api": {"id": "rImZoR2a92JfJBoa", "name": "Google Sheets account 2"}}
+    },
+    {
+      "parameters": {
+        "documentId": {"__rl": true, "value": "1gX3lQ5Ns5n5-cwqT4fAuU3Spcx86UtUPcUeWPNj2tAQ", "mode": "list"},
+        "sheetName": {"__rl": true, "value": 1663703534, "mode": "list"}
+      },
+      "name": "getFaq",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1560, 300],
+      "id": "a7",
+      "credentials": {"googleSheetsOAuth2Api": {"id": "rImZoR2a92JfJBoa", "name": "Google Sheets account 2"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const priceList = $('getPriceList').all().map(p => p.json);\nconst faqList = $('getFaq').all().map(f => f.json);\nconst email = $('checkOrCreate').first().json;\nconst history = $('fetchHistory').first().json;\nreturn [{json: {...email, priceList, faqList, history: Array.isArray(history) ? history : []}}];"
+      },
+      "name": "mergeData",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 300],
+      "id": "a8"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/conversations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "gmail_thread_id", "value": "=eq.{{ $json.thread_id }}"},
+            {"name": "select", "value": "*"}
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $credentials.serviceRole }}"}
+          ]
+        },
+        "options": {}
+      },
+      "name": "findConversation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2000, 300],
+      "id": "a9",
+      "credentials": {"supabaseApi": {"id": "Jn3pqBF4p98BZlo7", "name": "Supabase account"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('mergeData').first().json;\nconst convResponse = $input.first().json;\nlet conversationId = null;\nif (Array.isArray(convResponse) && convResponse.length > 0) {\n  conversationId = convResponse[0].id;\n  console.log('✅ Found conversation:', conversationId);\n  return [{json: {...email, conversation_id: conversationId, is_new: false}}];\n}\nconsole.log('📝 New conversation for:', email.email_address);\nreturn [{json: {...email, conversation_id: null, is_new: true}}];"
+      },
+      "name": "checkConversation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 300],
+      "id": "a10"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/conversations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": "={{ JSON.stringify({gmail_thread_id: $json.thread_id, subject: $json.subject, status: 'active', type: 'general', assigned_to: 'ai_support', customer_id: $json.customer_id}) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $credentials.serviceRole }}"},
+            {"name": "Prefer", "value": "return=representation"}
+          ]
+        },
+        "options": {}
+      },
+      "name": "createConversation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2440, 300],
+      "id": "a11",
+      "credentials": {"supabaseApi": {"id": "Jn3pqBF4p98BZlo7", "name": "Supabase account"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('checkConversation').first().json;\nconst createResp = $input.first().json;\nlet convId = email.conversation_id;\nif (!convId && createResp) {\n  if (Array.isArray(createResp)) {\n    convId = createResp[0]?.id;\n  } else if (createResp.id) {\n    convId = createResp.id;\n  }\n}\nconsole.log('✅ Conv ID:', convId, 'Customer:', email.email_address);\nreturn [{json: {...email, conversation_id: convId}}];"
+      },
+      "name": "getFinalConvId",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2660, 300],
+      "id": "a12"
+    },
+    {
+      "parameters": {
+        "modelId": "gpt-4",
+        "messages": {
+          "values": [
+            {"content": "Du är EventGaragets kundsupport. REGLER:\n1. Rekommendera ENDAST produkter från listan\n2. Om produkt saknas → säg det\n3. ALDRIG uppfinna produkter\n4. Svara personligt\n\nPRODUKTER:\n{{ $json.priceList.map(p => `• ${p.Name || p.name}: ${p['Price Per Day'] || p.price_per_day} SEK/dag`).join('\\n') }}", "role": "system"},
+            {"content": "=Från: {{ $json.name }}\nÄmne: {{ $json.subject }}\nMeddelande: {{ $json.body }}"}
+          ]
+        },
+        "options": {"maxTokens": 500, "temperature": 0.7}
+      },
+      "name": "aiResponse",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [2880, 200],
+      "id": "a13",
+      "credentials": {"openAiApi": {"id": "erTJVf7Uoi3QApUy", "name": "OpenAi account 2"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $input.first().json;\nlet responseText = '';\nif (aiResponse.message?.content) {\n  responseText = aiResponse.message.content;\n} else if (aiResponse.choices?.[0]?.message?.content) {\n  responseText = aiResponse.choices[0].message.content;\n} else if (typeof aiResponse === 'string') {\n  responseText = aiResponse;\n}\nresponseText = (responseText || '[NO RESPONSE]').toString().trim();\n\nconst emailData = $('getFinalConvId').first().json;\nconsole.log('📧 SENDING TO CUSTOMER:', emailData.email_address);\n\nif (!emailData.email_address) {\n  throw new Error('CRITICAL: email_address missing!');\n}\n\nreturn [{json: {to: emailData.email_address, subject: `Re: ${emailData.subject}`, html: `<div>${responseText.replace(/\\n/g, '<br/>')}</div>`, responseText, conversation_id: emailData.conversation_id, message_id: emailData.message_id, agent_email: emailData.agent_email, body: emailData.body, email_address: emailData.email_address}}];"
+      },
+      "name": "formatEmail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3100, 200],
+      "id": "a14"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "message": "={{$json.html}}"
+      },
+      "name": "sendEmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [3320, 200],
+      "id": "a15",
+      "credentials": {"gmailOAuth2": {"id": "30lZheVCEHLNKsYy", "name": "Gmail account 2"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $input.first().json;\nconsole.log('💾 Incoming from:', email.email_address, '(customer)');\nreturn [{json: {conversation_id: email.conversation_id, gmail_message_id: email.message_id, from_email: email.email_address, to_email: email.agent_email, subject: email.subject, body: email.body, body_plain: email.body, direction: 'inbound', sender_type: 'customer'}}];"
+      },
+      "name": "prepareIncoming",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3320, 360],
+      "id": "a16"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": "={{ JSON.stringify($json) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $credentials.serviceRole }}"},
+            {"name": "Prefer", "value": "return=representation"}
+          ]
+        },
+        "options": {}
+      },
+      "name": "saveIncoming",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [3540, 360],
+      "id": "a17",
+      "credentials": {"supabaseApi": {"id": "Jn3pqBF4p98BZlo7", "name": "Supabase account"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $input.first().json;\nconsole.log('💾 Outgoing to:', email.email_address, '(customer)');\nreturn [{json: {conversation_id: email.conversation_id, gmail_message_id: email.message_id, from_email: email.agent_email, to_email: email.email_address, subject: email.subject, body: email.responseText || '', body_plain: email.responseText || '', direction: 'outbound', sender_type: 'ai_support'}}];"
+      },
+      "name": "prepareOutgoing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3320, 520],
+      "id": "a18"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": "={{ JSON.stringify($json) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "apikey", "value": "={{ $credentials.serviceRole }}"},
+            {"name": "Prefer", "value": "return=representation"}
+          ]
+        },
+        "options": {}
+      },
+      "name": "saveOutgoing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [3540, 520],
+      "id": "a19",
+      "credentials": {"supabaseApi": {"id": "Jn3pqBF4p98BZlo7", "name": "Supabase account"}}
+    },
+    {
+      "parameters": {
+        "modelId": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {"content": "Klassificera email:\n- \"booking_request\" om kund vill hyra/boka\n- \"support_question\" om bara frågor\n\nReturnera JSON: {\"type\": \"booking_request\" eller \"support_question\"}", "role": "system"},
+            {"content": "=Email: {{ $json.body }}"}
+          ]
+        },
+        "options": {"maxTokens": 50, "temperature": 0.3}
+      },
+      "name": "classifyIntent",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [2880, 400],
+      "id": "a20",
+      "credentials": {"openAiApi": {"id": "erTJVf7Uoi3QApUy", "name": "OpenAi account 2"}}
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict"},
+                "conditions": [{"leftValue": "={{ $json.type }}", "rightValue": "booking_request", "operator": {"type": "string", "operation": "equals"}}],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "booking"
+            }
+          ]
+        },
+        "options": {"fallbackOutput": "single"}
+      },
+      "name": "router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [3100, 400],
+      "id": "a21"
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $env.QUOTATION_WORKFLOW_ID || 'REPLACE_WITH_WF2_ID' }}"
+      },
+      "name": "triggerQuotation",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [3320, 400],
+      "id": "a22"
+    }
+  ],
+  "connections": {
+    "gmailTrigger": {"main": [[{"node": "extractEmail", "type": "main", "index": 0}]]},
+    "extractEmail": {"main": [[{"node": "checkCustomer", "type": "main", "index": 0}]]},
+    "checkCustomer": {"main": [[{"node": "checkOrCreate", "type": "main", "index": 0}]]},
+    "checkOrCreate": {"main": [[{"node": "fetchHistory", "type": "main", "index": 0}]]},
+    "fetchHistory": {"main": [[{"node": "getPriceList", "type": "main", "index": 0}]]},
+    "getPriceList": {"main": [[{"node": "getFaq", "type": "main", "index": 0}]]},
+    "getFaq": {"main": [[{"node": "mergeData", "type": "main", "index": 0}]]},
+    "mergeData": {"main": [[{"node": "findConversation", "type": "main", "index": 0}]]},
+    "findConversation": {"main": [[{"node": "checkConversation", "type": "main", "index": 0}]]},
+    "checkConversation": {"main": [[{"node": "createConversation", "type": "main", "index": 0}]]},
+    "createConversation": {"main": [[{"node": "getFinalConvId", "type": "main", "index": 0}]]},
+    "getFinalConvId": {"main": [[{"node": "aiResponse", "type": "main", "index": 0}, {"node": "classifyIntent", "type": "main", "index": 0}]]},
+    "aiResponse": {"main": [[{"node": "formatEmail", "type": "main", "index": 0}]]},
+    "formatEmail": {"main": [[{"node": "sendEmail", "type": "main", "index": 0}, {"node": "prepareIncoming", "type": "main", "index": 0}, {"node": "prepareOutgoing", "type": "main", "index": 0}]]},
+    "prepareIncoming": {"main": [[{"node": "saveIncoming", "type": "main", "index": 0}]]},
+    "prepareOutgoing": {"main": [[{"node": "saveOutgoing", "type": "main", "index": 0}]]},
+    "classifyIntent": {"main": [[{"node": "router", "type": "main", "index": 0}]]},
+    "router": {"main": [[{"node": "triggerQuotation", "type": "main", "index": 0}], []]}
+  },
+  "pinData": {},
+  "settings": {},
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0
+}

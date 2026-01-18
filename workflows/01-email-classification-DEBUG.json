@@ -1,0 +1,92 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "includeSpamTrash": false,
+          "labelIds": [
+            "INBOX"
+          ]
+        }
+      },
+      "displayName": "Gmail Trigger",
+      "name": "gmailTrigger1",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        -48
+      ],
+      "id": "ab03a202-918e-4840-9df4-29a62d789e0c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30lZheVCEHLNKsYy",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const gmailData = $input.first().json;\nconsole.log('📧 Email received from:', gmailData.From);\nconsole.log('📧 Subject:', gmailData.Subject);\nconsole.log('📧 Thread ID:', gmailData.threadId);\nconst emailMatch = gmailData.From.match(/<(.+?)>/) || gmailData.From.match(/([^\\s@]+@[^\\s@]+\\.[^\\s@]+)/);\nconst name = gmailData.From.split('<')[0].trim() || 'Kund';\nreturn [{json: {thread_id: gmailData.threadId, message_id: gmailData.id, from: gmailData.From, to: gmailData.To, subject: gmailData.Subject, body: gmailData.snippet || '', email_address: emailMatch ? emailMatch[1] : gmailData.From.trim(), name: name}}];"
+      },
+      "displayName": "Extract Email",
+      "name": "extractEmail1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        -48
+      ],
+      "id": "290ec9ab-4211-409e-a7f5-be5538fdf788"
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $input.first().json;\nconsole.log('✅ Test complete. Email extracted successfully');\nconsole.log('  From:', email.email_address);\nconsole.log('  Subject:', email.subject);\nreturn [{json: {success: true, email: email}}];"
+      },
+      "displayName": "Test - Success",
+      "name": "testSuccess",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        -48
+      ],
+      "id": "test-success-001"
+    }
+  ],
+  "connections": {
+    "gmailTrigger1": {
+      "main": [
+        [
+          {
+            "node": "extractEmail1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extractEmail1": {
+      "main": [
+        [
+          {
+            "node": "testSuccess",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

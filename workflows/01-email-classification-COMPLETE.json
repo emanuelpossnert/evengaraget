@@ -1,0 +1,595 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "includeSpamTrash": false,
+          "labelIds": [
+            "INBOX"
+          ]
+        }
+      },
+      "displayName": "Gmail Trigger",
+      "name": "gmailTrigger1",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        0
+      ],
+      "id": "ab03a202-918e-4840-9df4-29a62d789e0c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30lZheVCEHLNKsYy",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const gmailData = $input.first().json;\nconst emailMatch = gmailData.From.match(/<(.+?)>/) || gmailData.From.match(/([^\\s@]+@[^\\s@]+\\.[^\\s@]+)/);\nconst name = gmailData.From.split('<')[0].trim() || 'Kund';\nconsole.log('📧 Email from:', emailMatch ? emailMatch[1] : 'unknown');\nreturn [{json: {thread_id: gmailData.threadId, message_id: gmailData.id, from: gmailData.From, to: gmailData.To, subject: gmailData.Subject, body: gmailData.snippet || '', email_address: emailMatch ? emailMatch[1] : gmailData.From.trim(), name: name}}];"
+      },
+      "displayName": "1️⃣ Extract Email",
+      "name": "extractEmail1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        0
+      ],
+      "id": "290ec9ab-4211-409e-a7f5-be5538fdf788"
+    },
+    {
+      "parameters": {
+        "operation": "getByCondition",
+        "schema": "public",
+        "table": "customers",
+        "where": {
+          "firstCondition": {
+            "column": "email",
+            "condition": "is",
+            "value": "={{ $json.email_address }}"
+          }
+        }
+      },
+      "displayName": "2️⃣ Check Customer",
+      "name": "checkCustomer",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        0
+      ],
+      "id": "550d7836-7711-42be-bfa8-5b63a293cb9f",
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('extractEmail1').first().json;\nconst customerResponse = $('checkCustomer').first().json;\nconst customerExists = Array.isArray(customerResponse) && customerResponse.length > 0;\nlet customerId = null;\nif (customerExists) {\n  customerId = customerResponse[0].id;\n  console.log('✅ Customer found:', customerId);\n  return [{json: {customer_id: customerId, is_new: false, ...email}}];\n}\nconsole.log('📝 New customer');\nreturn [{json: {customer_id: null, is_new: true, ...email}}];"
+      },
+      "displayName": "3️⃣ Check/Create Customer",
+      "name": "checkOrCreateCustomer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        0
+      ],
+      "id": "d588aead-6dae-4b0f-965d-7a3c0cdb1703"
+    },
+    {
+      "parameters": {
+        "operation": "getByCondition",
+        "schema": "public",
+        "table": "messages",
+        "where": {
+          "firstCondition": {
+            "column": "from_email",
+            "condition": "is",
+            "value": "={{ $json.email_address }}"
+          }
+        },
+        "limit": 5,
+        "sortBy": [
+          {
+            "column": "created_at",
+            "direction": "DESC"
+          }
+        ]
+      },
+      "displayName": "4️⃣ Fetch History",
+      "name": "fetchHistory",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 2,
+      "position": [
+        176,
+        0
+      ],
+      "id": "6016186e-af2a-49fc-9656-f3ca34986b05",
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1yiEYoKFYx-Y018NiL2sg54lXjq_CjJ1DGtbuVv1cGsw",
+          "mode": "list",
+          "cachedResultName": "PriceList_template"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1874648354,
+          "mode": "list",
+          "cachedResultName": "PriceList_template"
+        },
+        "options": {}
+      },
+      "displayName": "5️⃣ Get Price List",
+      "name": "getPriceList1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        400,
+        0
+      ],
+      "id": "b17eb727-2f7d-4cb7-b3de-3c6b44f59409",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rImZoR2a92JfJBoa",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1gX3lQ5Ns5n5-cwqT4fAuU3Spcx86UtUPcUeWPNj2tAQ",
+          "mode": "list",
+          "cachedResultName": "FAQ_template"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1663703534,
+          "mode": "list",
+          "cachedResultName": "FAQ_template"
+        },
+        "options": {}
+      },
+      "displayName": "6️⃣ Get FAQ",
+      "name": "getFaq1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        624,
+        0
+      ],
+      "id": "9d7451e5-aacf-4a12-8cc3-49c0e3f3e56a",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rImZoR2a92JfJBoa",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const priceList = $('getPriceList1').all().map(p => p.json);\nconst faqList = $('getFaq1').all().map(f => f.json);\nconst email = $('checkOrCreateCustomer').first().json;\nconst history = $('fetchHistory').first().json;\nconsole.log('📊 Merging data');\nreturn [{json: {...email, priceList, faqList, history: Array.isArray(history) ? history : []}}];"
+      },
+      "displayName": "7️⃣ Merge Data",
+      "name": "mergeData1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        0
+      ],
+      "id": "ca9d2897-c8e4-41da-917c-540b13c90117"
+    },
+    {
+      "parameters": {
+        "operation": "getByCondition",
+        "schema": "public",
+        "table": "conversations",
+        "where": {
+          "firstCondition": {
+            "column": "gmail_thread_id",
+            "condition": "is",
+            "value": "={{ $json.thread_id }}"
+          }
+        }
+      },
+      "displayName": "8️⃣ Find Conversation",
+      "name": "findConversation",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 2,
+      "position": [
+        1072,
+        0
+      ],
+      "id": "find-conv-001",
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('mergeData1').first().json;\nconst conversationResponse = $('findConversation').first().json;\n\nlet conversationId = null;\n\nif (Array.isArray(conversationResponse) && conversationResponse.length > 0) {\n  conversationId = conversationResponse[0].id;\n  console.log('✅ Found conversation:', conversationId);\n  return [{json: {...email, conversation_id: conversationId, is_new_conversation: false}}];\n}\n\nconsole.log('📝 Creating new conversation for:', email.email_address);\nreturn [{json: {...email, conversation_id: null, is_new_conversation: true}}];"
+      },
+      "displayName": "9️⃣ Check Conversation",
+      "name": "checkConversation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        0
+      ],
+      "id": "9698bf46-155d-4ac9-92eb-37f0740e77e7"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "conversations",
+        "columns": {
+          "mappings": [
+            {
+              "columnName": "gmail_thread_id",
+              "value": "={{ $json.thread_id }}"
+            },
+            {
+              "columnName": "subject",
+              "value": "={{ $json.subject }}"
+            },
+            {
+              "columnName": "status",
+              "value": "active"
+            },
+            {
+              "columnName": "type",
+              "value": "general"
+            },
+            {
+              "columnName": "assigned_to",
+              "value": "ai_agent"
+            },
+            {
+              "columnName": "customer_id",
+              "value": "={{ $json.customer_id }}"
+            }
+          ]
+        },
+        "returnData": true
+      },
+      "displayName": "🔟 Create Conversation",
+      "name": "createConversation",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        0
+      ],
+      "id": "f0096b07-9acd-4c64-8111-b1da5fdc4fb1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('checkConversation').first().json;\nconst createResponse = $input.first().json;\n\nlet conversationId = email.conversation_id;\n\nif (!conversationId && createResponse) {\n  if (Array.isArray(createResponse)) {\n    conversationId = createResponse[0]?.id;\n  } else if (createResponse.id) {\n    conversationId = createResponse.id;\n  }\n}\n\nconsole.log('✅ Conv ID:', conversationId, 'Email:', email.email_address);\n\nif (!email.email_address) {\n  throw new Error('CRITICAL: email_address missing!');\n}\n\nreturn [{json: {...email, conversation_id: conversationId}}];"
+      },
+      "displayName": "1️⃣1️⃣ Get Final Conv ID",
+      "name": "getFinalConversationId",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1744,
+        0
+      ],
+      "id": "9dc1328c-a121-4d84-9e42-59e04e3d003c"
+    },
+    {
+      "parameters": {
+        "modelId": "gpt-4",
+        "messages": {
+          "values": [
+            {
+              "content": "Du är EventGaragets kundsupport. Du hjälper till med frågor om hyra av partytält och event-utrustning.\n\n✅ REGLER:\n1. Rekommendera ENDAST dessa produkter nedan\n2. Om kund frågar om något som INTE finns → säg vi inte har det\n3. ALDRIG nämn att du är en AI\n4. Svara personligt och vänligt\n\n📋 PRODUKTER:\n{{ $json.priceList.map(p => `• ${p['Product Name'] || p['name']}: ${p['Price Per Day'] || p['price_per_day']} SEK/dag`).join('\\n') }}\n\nVAR VÄNLIG OCH HJÄLPSAM!",
+              "role": "system"
+            },
+            {
+              "content": "=Från: {{ $json.name }}\nÄmne: {{ $json.subject }}\nMeddelande: {{ $json.body }}\n\nSVAR KORT OCH PERSONLIGT!"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 500,
+          "temperature": 0.7
+        }
+      },
+      "displayName": "1️⃣2️⃣ AI Response",
+      "name": "aiResponse1",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        1968,
+        -96
+      ],
+      "id": "e6ab23f1-0d1f-4578-bb7d-ad357656819d",
+      "credentials": {
+        "openAiApi": {
+          "id": "erTJVf7Uoi3QApUy",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $input.first().json;\nlet responseText = '';\n\nif (aiResponse.message?.content) {\n  responseText = aiResponse.message.content;\n} else if (aiResponse.choices?.[0]?.message?.content) {\n  responseText = aiResponse.choices[0].message.content;\n} else if (typeof aiResponse === 'string') {\n  responseText = aiResponse;\n}\n\nresponseText = (responseText || '[NO RESPONSE]').toString().trim();\n\nconst emailData = $('getFinalConversationId').first().json;\n\nconsole.log('📧 Format email for:', emailData.email_address);\n\nif (!emailData.email_address) {\n  throw new Error('CRITICAL: email_address missing!');\n}\n\nreturn [{json: {\n  to: emailData.email_address,\n  subject: `Re: ${emailData.subject}`,\n  html: `<div style=\"font-family: Arial; line-height: 1.6;\">\\n${responseText.replace(/\\n/g, '<br/>')}\\n<br/><br/>\\n<p style=\"color: #666; font-size: 12px;\">EventGaraget</p>\\n</div>`,\n  responseText,\n  ...emailData\n}}];"
+      },
+      "displayName": "1️⃣3️⃣ Format Email",
+      "name": "formatEmail1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        -96
+      ],
+      "id": "98ff3f41-e00b-4f2c-abea-f6df577569be"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "message": "={{$json.html}}",
+        "options": {}
+      },
+      "displayName": "1️⃣4️⃣ Send Email",
+      "name": "sendEmail1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        2416,
+        -96
+      ],
+      "id": "cb5087b7-e631-4f7d-890f-3b72ad1eefed",
+      "webhookId": "612831e2-62c8-42db-b194-ff706290c6af",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30lZheVCEHLNKsYy",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $input.first().json;\nconsole.log('💾 Save incoming from:', email.email_address);\nreturn [{json: {\n  conversation_id: email.conversation_id,\n  gmail_message_id: email.message_id,\n  from_email: email.email_address,\n  to_email: email.to,\n  subject: email.subject,\n  body: email.body,\n  body_plain: email.body,\n  direction: 'inbound',\n  sender_type: 'customer'\n}}];"
+      },
+      "displayName": "1️⃣5️⃣ Prepare Incoming",
+      "name": "prepareIncomingMsg",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        72
+      ],
+      "id": "c575f20d-a5a1-42c4-97ab-49d985f231df"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "messages",
+        "columns": {
+          "mappings": [
+            {
+              "columnName": "conversation_id",
+              "value": "={{ $json.conversation_id }}"
+            },
+            {
+              "columnName": "gmail_message_id",
+              "value": "={{ $json.gmail_message_id }}"
+            },
+            {
+              "columnName": "from_email",
+              "value": "={{ $json.from_email }}"
+            },
+            {
+              "columnName": "to_email",
+              "value": "={{ $json.to_email }}"
+            },
+            {
+              "columnName": "subject",
+              "value": "={{ $json.subject }}"
+            },
+            {
+              "columnName": "body",
+              "value": "={{ $json.body }}"
+            },
+            {
+              "columnName": "body_plain",
+              "value": "={{ $json.body_plain }}"
+            },
+            {
+              "columnName": "direction",
+              "value": "={{ $json.direction }}"
+            },
+            {
+              "columnName": "sender_type",
+              "value": "={{ $json.sender_type }}"
+            }
+          ]
+        }
+      },
+      "displayName": "1️⃣6️⃣ Save Incoming",
+      "name": "saveIncomingMsg",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 2,
+      "position": [
+        2416,
+        72
+      ],
+      "id": "ccf0c5be-8016-47df-85ee-c93f84a426d0",
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $input.first().json;\nconsole.log('💾 Save outgoing to:', email.email_address);\nreturn [{json: {\n  conversation_id: email.conversation_id,\n  gmail_message_id: email.message_id,\n  from_email: 'kundsupport@eventgaraget.se',\n  to_email: email.email_address,\n  subject: email.subject,\n  body: email.responseText || '',\n  body_plain: email.responseText || '',\n  direction: 'outbound',\n  sender_type: 'ai_support'\n}}];"
+      },
+      "displayName": "1️⃣7️⃣ Prepare Outgoing",
+      "name": "prepareOutgoingMsg",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        240
+      ],
+      "id": "02c5031e-ecc9-4f0e-8954-4fc4c1561c7f"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "messages",
+        "columns": {
+          "mappings": [
+            {
+              "columnName": "conversation_id",
+              "value": "={{ $json.conversation_id }}"
+            },
+            {
+              "columnName": "gmail_message_id",
+              "value": "={{ $json.gmail_message_id }}"
+            },
+            {
+              "columnName": "from_email",
+              "value": "={{ $json.from_email }}"
+            },
+            {
+              "columnName": "to_email",
+              "value": "={{ $json.to_email }}"
+            },
+            {
+              "columnName": "subject",
+              "value": "={{ $json.subject }}"
+            },
+            {
+              "columnName": "body",
+              "value": "={{ $json.body }}"
+            },
+            {
+              "columnName": "body_plain",
+              "value": "={{ $json.body_plain }}"
+            },
+            {
+              "columnName": "direction",
+              "value": "={{ $json.direction }}"
+            },
+            {
+              "columnName": "sender_type",
+              "value": "={{ $json.sender_type }}"
+            }
+          ]
+        }
+      },
+      "displayName": "1️⃣8️⃣ Save Outgoing",
+      "name": "saveOutgoingMsg",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 2,
+      "position": [
+        2416,
+        240
+      ],
+      "id": "0446695e-7638-4b61-a70c-5f2bc7b5f40b",
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "gmailTrigger1": {
+      "main": [[{"node": "extractEmail1", "type": "main", "index": 0}]]
+    },
+    "extractEmail1": {
+      "main": [[{"node": "checkCustomer", "type": "main", "index": 0}]]
+    },
+    "checkCustomer": {
+      "main": [[{"node": "checkOrCreateCustomer", "type": "main", "index": 0}]]
+    },
+    "checkOrCreateCustomer": {
+      "main": [[{"node": "fetchHistory", "type": "main", "index": 0}]]
+    },
+    "fetchHistory": {
+      "main": [[{"node": "getPriceList1", "type": "main", "index": 0}]]
+    },
+    "getPriceList1": {
+      "main": [[{"node": "getFaq1", "type": "main", "index": 0}]]
+    },
+    "getFaq1": {
+      "main": [[{"node": "mergeData1", "type": "main", "index": 0}]]
+    },
+    "mergeData1": {
+      "main": [[{"node": "findConversation", "type": "main", "index": 0}]]
+    },
+    "findConversation": {
+      "main": [[{"node": "checkConversation", "type": "main", "index": 0}]]
+    },
+    "checkConversation": {
+      "main": [[{"node": "createConversation", "type": "main", "index": 0}]]
+    },
+    "createConversation": {
+      "main": [[{"node": "getFinalConversationId", "type": "main", "index": 0}]]
+    },
+    "getFinalConversationId": {
+      "main": [[{"node": "aiResponse1", "type": "main", "index": 0}]]
+    },
+    "aiResponse1": {
+      "main": [[{"node": "formatEmail1", "type": "main", "index": 0}]]
+    },
+    "formatEmail1": {
+      "main": [[{"node": "sendEmail1", "type": "main", "index": 0}, {"node": "prepareIncomingMsg", "type": "main", "index": 0}, {"node": "prepareOutgoingMsg", "type": "main", "index": 0}]]
+    },
+    "prepareIncomingMsg": {
+      "main": [[{"node": "saveIncomingMsg", "type": "main", "index": 0}]]
+    },
+    "prepareOutgoingMsg": {
+      "main": [[{"node": "saveOutgoingMsg", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4a88ff8272839a3037c3a37b8392227d54ce1cd60ae5d0250b6140753119fda2"
+  }
+}

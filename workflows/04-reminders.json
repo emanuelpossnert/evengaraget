@@ -1,0 +1,198 @@
+{
+  "name": "04-Reminders & Follow-ups",
+  "description": "Scheduled reminders for unsigned quotations, delivery dates, and follow-up surveys",
+  "version": 1.0,
+  "active": true,
+  "nodes": [
+    {
+      "displayName": "Cron - Run Every 6 Hours",
+      "name": "cronTrigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "parameters": {
+        "mode": "everyX",
+        "everyX": 6,
+        "unit": "hours"
+      }
+    },
+    {
+      "displayName": "Fetch Unsigned Quotations",
+      "name": "fetchUnsignedQuotations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [300, 0],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/quotations?status=eq.pending_signature&expires_at=gt.{{new Date().toISOString()}}&select=*",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "supabaseApi": "YOUR_SUPABASE_CREDENTIAL_ID"
+      }
+    },
+    {
+      "displayName": "Check Reminder Status",
+      "name": "checkReminderStatus",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 0],
+      "parameters": {
+        "jsCode": "const quotations = $input.all().map(q => q.json).filter(q => q && q.id);\n\nif (!quotations || quotations.length === 0) {\n  return [{ json: { message: 'No unsigned quotations found' } }];\n}\n\nconst now = new Date();\nconst reminders = quotations.map(q => {\n  const createdAt = new Date(q.created_at);\n  const hoursOld = (now - createdAt) / (1000 * 60 * 60);\n  \n  let reminderType = null;\n  if (hoursOld >= 24 && hoursOld < 48) {\n    reminderType = 'first_reminder'; // 1 day old\n  } else if (hoursOld >= 48 && hoursOld < 72) {\n    reminderType = 'second_reminder'; // 2 days old\n  } else if (hoursOld >= 168) { // 7 days\n    reminderType = 'final_reminder';\n  }\n  \n  return {\n    quotation_id: q.id,\n    quotation_number: q.quotation_number,\n    customer_email: q.customer_email,\n    total_amount: q.total_amount,\n    rental_start: q.rental_start,\n    reminderType: reminderType,\n    hoursOld: Math.round(hoursOld)\n  };\n}).filter(r => r.reminderType);\n\nreturn reminders.map(r => ({ json: r }));"
+      }
+    },
+    {
+      "displayName": "Format First Reminder Email",
+      "name": "formatFirstReminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 0],
+      "parameters": {
+        "jsCode": "const q = $input.first().json;\n\nif (q.reminderType !== 'first_reminder') {\n  return [{ json: { skip: true } }];\n}\n\nreturn [{\n  json: {\n    to: q.customer_email,\n    subject: `Påminnelse: Offert från EventGaraget - QT-${q.quotation_number}`,\n    html: `\n      <h2>Vi väntar på din signatur!</h2>\n      <p>Hej!</p>\n      <p>Du har en offert på <strong>${q.total_amount} SEK</strong> som väntar på din signatur.</p>\n      <p><strong>Offert nummer:</strong> ${q.quotation_number}</p>\n      <p><strong>Hyresperiod:</strong> ${q.rental_start}</p>\n      <p>Vänligen signera offerten för att bekräfta din bokning.</p>\n      <p>Mvh EventGaraget Team</p>\n    `\n  }\n}];"
+      }
+    },
+    {
+      "displayName": "Format Second Reminder Email",
+      "name": "formatSecondReminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 150],
+      "parameters": {
+        "jsCode": "const q = $input.first().json;\n\nif (q.reminderType !== 'second_reminder') {\n  return [{ json: { skip: true } }];\n}\n\nreturn [{\n  json: {\n    to: q.customer_email,\n    subject: `PÅMINNELSE x2: Offert från EventGaraget - QT-${q.quotation_number}`,\n    html: `\n      <h2>Sista påminnelse innan offerten löper ut!</h2>\n      <p>Hej!</p>\n      <p>Vi skickar detta som en andra påminnelse om din väntande offert på <strong>${q.total_amount} SEK</strong>.</p>\n      <p>Offerten löper ut om ca 5 dagar.</p>\n      <p><strong>Offert nummer:</strong> ${q.quotation_number}</p>\n      <p>Signera offerten nu för att säkra ditt event!</p>\n      <p>Mvh EventGaraget Team</p>\n    `\n  }\n}];"
+      }
+    },
+    {
+      "displayName": "Format Final Reminder Email",
+      "name": "formatFinalReminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "parameters": {
+        "jsCode": "const q = $input.first().json;\n\nif (q.reminderType !== 'final_reminder') {\n  return [{ json: { skip: true } }];\n}\n\nreturn [{\n  json: {\n    to: q.customer_email,\n    subject: `⚠️ SISTA CHANSEN: Offert löper ut idag - EventGaraget`,\n    html: `\n      <h2>Din offert löper ut idag!</h2>\n      <p>Hej!</p>\n      <p>Din offert på <strong>${q.total_amount} SEK</strong> löper ut <strong>idag</strong>.</p>\n      <p><strong>Offert nummer:</strong> ${q.quotation_number}</p>\n      <p>Om du vill gå vidare med bokningen, signera offerten nu!</p>\n      <p>Kontakta oss direkt om du har några frågor.</p>\n      <p>Mvh EventGaraget Team</p>\n    `\n  }\n}];"
+      }
+    },
+    {
+      "displayName": "Send Reminder Email",
+      "name": "sendReminderEmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [1200, 100],
+      "parameters": {
+        "sendTo": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "message": "={{$json.html}}"
+      },
+      "credentials": {
+        "gmailOAuth2": "YOUR_GMAIL_CREDENTIAL_ID"
+      }
+    },
+    {
+      "displayName": "Fetch Upcoming Deliveries",
+      "name": "fetchUpcomingDeliveries",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [300, 500],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/bookings?status=eq.confirmed&rental_start=gte.{{new Date().toISOString().split('T')[0]}}&rental_start=lte.{{new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0]}}&select=*,quotations(*)",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "supabaseApi": "YOUR_SUPABASE_CREDENTIAL_ID"
+      }
+    },
+    {
+      "displayName": "Format Delivery Reminder",
+      "name": "formatDeliveryReminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 500],
+      "parameters": {
+        "jsCode": "const booking = $input.first().json;\n\nif (!booking || !booking.id) {\n  return [{ json: { skip: true } }];\n}\n\nconst rentalStart = new Date(booking.rental_start);\nconst now = new Date();\nconst daysUntilDelivery = Math.ceil((rentalStart - now) / (1000 * 60 * 60 * 24));\n\nreturn [{\n  json: {\n    to: booking.customer_email,\n    booking_number: booking.booking_number,\n    subject: `📦 Påminnelse: Leverans om ${daysUntilDelivery} dagar - EventGaraget`,\n    html: `\n      <h2>Leveranspåminnelse</h2>\n      <p>Hej!</p>\n      <p>Din bokning är inställd för leverans om <strong>${daysUntilDelivery} dagar</strong> (${rentalStart.toLocaleDateString('sv-SE')}).</p>\n      <p><strong>Bokningsnummer:</strong> ${booking.booking_number}</p>\n      <p><strong>Leveransadress:</strong> ${booking.delivery_address || 'Enligt offert'}</p>\n      <p>Kontakta oss omedelbar om leveransdatumet behöver ändras.</p>\n      <p>Mvh EventGaraget Team</p>\n    `\n  }\n}];"
+      }
+    },
+    {
+      "displayName": "Send Delivery Reminder",
+      "name": "sendDeliveryReminder",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [900, 500],
+      "parameters": {
+        "sendTo": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "message": "={{$json.html}}"
+      },
+      "credentials": {
+        "gmailOAuth2": "YOUR_GMAIL_CREDENTIAL_ID"
+      }
+    },
+    {
+      "displayName": "Log Reminder Event",
+      "name": "logReminderEvent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1200, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "https://njiagzdssxoxycxraubf.supabase.co/rest/v1/ai_analytics",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "body": {
+          "parameterizedBody": "={{{\n  event_type: 'reminder_sent',\n  reminder_type: $json.reminderType || 'delivery',\n  customer_email: $json.customer_email || $json.to,\n  timestamp: new Date().toISOString()\n}}}",
+          "contentType": "application/json"
+        }
+      },
+      "credentials": {
+        "supabaseApi": "YOUR_SUPABASE_CREDENTIAL_ID"
+      }
+    }
+  ],
+  "connections": {
+    "cronTrigger": {
+      "main": [[{"node": "fetchUnsignedQuotations", "type": "main", "index": 0}, {"node": "fetchUpcomingDeliveries", "type": "main", "index": 0}]]
+    },
+    "fetchUnsignedQuotations": {
+      "main": [[{"node": "checkReminderStatus", "type": "main", "index": 0}]]
+    },
+    "checkReminderStatus": {
+      "main": [[{"node": "formatFirstReminder", "type": "main", "index": 0}, {"node": "formatSecondReminder", "type": "main", "index": 0}, {"node": "formatFinalReminder", "type": "main", "index": 0}]]
+    },
+    "formatFirstReminder": {
+      "main": [[{"node": "sendReminderEmail", "type": "main", "index": 0}]]
+    },
+    "formatSecondReminder": {
+      "main": [[{"node": "sendReminderEmail", "type": "main", "index": 0}]]
+    },
+    "formatFinalReminder": {
+      "main": [[{"node": "sendReminderEmail", "type": "main", "index": 0}]]
+    },
+    "sendReminderEmail": {
+      "main": [[{"node": "logReminderEvent", "type": "main", "index": 0}]]
+    },
+    "fetchUpcomingDeliveries": {
+      "main": [[{"node": "formatDeliveryReminder", "type": "main", "index": 0}]]
+    },
+    "formatDeliveryReminder": {
+      "main": [[{"node": "sendDeliveryReminder", "type": "main", "index": 0}]]
+    },
+    "sendDeliveryReminder": {
+      "main": [[{"node": "logReminderEvent", "type": "main", "index": 0}]]
+    }
+  }
+}

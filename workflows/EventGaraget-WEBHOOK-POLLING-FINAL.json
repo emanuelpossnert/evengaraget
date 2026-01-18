@@ -1,0 +1,320 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "intervalValue": 30,
+              "triggerUnit": "seconds"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule: Every 30 seconds",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1456,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "webhook_logs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "success",
+              "condition": "eq",
+              "keyValue": false
+            }
+          ]
+        }
+      },
+      "id": "fetch-pending-webhooks",
+      "name": "Fetch Pending Webhooks",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1280,
+        -112
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "loopExpression": "={{ $json }}"
+      },
+      "id": "loop-each-webhook",
+      "name": "Loop: Each Webhook Event",
+      "type": "n8n-nodes-base.loop",
+      "typeVersion": 1,
+      "position": [
+        -1008,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "condition_booking_confirmed",
+              "operator": {
+                "name": "filter.operator.equals",
+                "type": "string",
+                "value": "="
+              },
+              "leftValue": "={{ $json.event_type }}",
+              "rightValue": "booking_confirmed"
+            }
+          ]
+        }
+      },
+      "id": "check-event-type-booking",
+      "name": "Is booking_confirmed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "condition_email_sent",
+              "operator": {
+                "name": "filter.operator.equals",
+                "type": "string",
+                "value": "="
+              },
+              "leftValue": "={{ $json.event_type }}",
+              "rightValue": "email_sent"
+            }
+          ]
+        }
+      },
+      "id": "check-event-type-email",
+      "name": "Is email_sent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://{{ $env.N8N_INSTANCE_HOST }}/webhook/booking-confirmation",
+        "method": "POST",
+        "headers": {},
+        "options": {}
+      },
+      "id": "call-booking-webhook",
+      "name": "Call: Booking Confirmation Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -400,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://{{ $env.N8N_INSTANCE_HOST }}/webhook/send-email",
+        "method": "POST",
+        "headers": {},
+        "options": {}
+      },
+      "id": "call-email-webhook",
+      "name": "Call: Send Email Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -400,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "webhook_logs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "success",
+              "fieldValue": true
+            },
+            {
+              "fieldId": "response",
+              "fieldValue": "Processed at {{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "mark-success",
+      "name": "Mark Webhook: Success",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -112
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      },
+      "onError": "continueRegardlessly"
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhooks = $input.all();\n\nif (webhooks.length === 0) {\n  console.log('✅ No pending webhooks');\n  return [{ json: { processed: 0, message: 'No pending events' } }];\n}\n\nconsole.log(`🔄 Processing ${webhooks.length} pending webhooks`);\nwebhooks.forEach((w, i) => {\n  console.log(`  ${i + 1}. ${w.json.event_type} - ${w.json.webhook_name}`);\n});\n\nreturn [{ json: { processed: webhooks.length, count: webhooks.length } }];"
+      },
+      "id": "summary-log",
+      "name": "Summary Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        -112
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule: Every 30 seconds": {
+      "main": [
+        [
+          {
+            "node": "Fetch Pending Webhooks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Pending Webhooks": {
+      "main": [
+        [
+          {
+            "node": "Loop: Each Webhook Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop: Each Webhook Event": {
+      "main": [
+        [
+          {
+            "node": "Is booking_confirmed?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is email_sent?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is booking_confirmed?": {
+      "main": [
+        [
+          {
+            "node": "Call: Booking Confirmation Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Webhook: Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is email_sent?": {
+      "main": [
+        [
+          {
+            "node": "Call: Send Email Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Webhook: Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call: Booking Confirmation Webhook": {
+      "main": [
+        [
+          {
+            "node": "Mark Webhook: Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call: Send Email Webhook": {
+      "main": [
+        [
+          {
+            "node": "Mark Webhook: Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Webhook: Success": {
+      "main": [
+        [
+          {
+            "node": "Summary Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4a88ff8272839a3037c3a37b8392227d54ce1cd60ae5d0250b6140753119fda2"
+  }
+}
+

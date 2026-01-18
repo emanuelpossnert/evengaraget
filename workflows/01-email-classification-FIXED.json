@@ -1,0 +1,766 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "includeSpamTrash": false,
+          "labelIds": [
+            "INBOX"
+          ]
+        }
+      },
+      "displayName": "Gmail Trigger",
+      "name": "gmailTrigger1",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        0
+      ],
+      "id": "ab03a202-918e-4840-9df4-29a62d789e0c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30lZheVCEHLNKsYy",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const gmailData = $input.first().json;\nconst emailMatch = gmailData.From.match(/<(.+?)>/) || gmailData.From.match(/([^\\s@]+@[^\\s@]+\\.[^\\s@]+)/);\nconst name = gmailData.From.split('<')[0].trim() || 'Kund';\nreturn [{json: {thread_id: gmailData.threadId, message_id: gmailData.id, from: gmailData.From, to: gmailData.To, subject: gmailData.Subject, body: gmailData.snippet || '', email_address: emailMatch ? emailMatch[1] : gmailData.From.trim(), name: name}}];"
+      },
+      "displayName": "Extract Email",
+      "name": "extractEmail1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        0
+      ],
+      "id": "290ec9ab-4211-409e-a7f5-be5538fdf788"
+    },
+    {
+      "parameters": {
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/customers?email=eq.{{ $json.email_address }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "displayName": "Check Customer",
+      "name": "checkCustomer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -272,
+        0
+      ],
+      "id": "550d7836-7711-42be-bfa8-5b63a293cb9f",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('extractEmail1').first().json;\nconst customerResponse = $('checkCustomer').first().json;\nconst customerExists = Array.isArray(customerResponse) && customerResponse.length > 0;\nlet customerId = null;\nif (customerExists) {\n  customerId = customerResponse[0].id;\n  return [{json: {customer_id: customerId, is_new: false, ...email}}];\n}\nreturn [{json: {customer_id: null, is_new: true, ...email}}];"
+      },
+      "displayName": "Check or Create Customer",
+      "name": "checkOrCreateCustomer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        0
+      ],
+      "id": "d588aead-6dae-4b0f-965d-7a3c0cdb1703"
+    },
+    {
+      "parameters": {
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/messages?from_email=eq.{{ $json.email_address }}&select=*&order=created_at.desc&limit=5",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "displayName": "Fetch History",
+      "name": "fetchHistory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        176,
+        0
+      ],
+      "id": "6016186e-af2a-49fc-9656-f3ca34986b05",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1yiEYoKFYx-Y018NiL2sg54lXjq_CjJ1DGtbuVv1cGsw",
+          "mode": "list",
+          "cachedResultName": "PriceList_template"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1874648354,
+          "mode": "list",
+          "cachedResultName": "PriceList_template"
+        },
+        "options": {}
+      },
+      "displayName": "Get Price List",
+      "name": "getPriceList1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        400,
+        0
+      ],
+      "id": "b17eb727-2f7d-4cb7-b3de-3c6b44f59409",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rImZoR2a92JfJBoa",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1gX3lQ5Ns5n5-cwqT4fAuU3Spcx86UtUPcUeWPNj2tAQ",
+          "mode": "list",
+          "cachedResultName": "FAQ_template"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1663703534,
+          "mode": "list",
+          "cachedResultName": "FAQ_template"
+        },
+        "options": {}
+      },
+      "displayName": "Get FAQ",
+      "name": "getFaq1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        624,
+        0
+      ],
+      "id": "9d7451e5-aacf-4a12-8cc3-49c0e3f3e56a",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rImZoR2a92JfJBoa",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const priceList = $('getPriceList1').all().map(p => p.json);\nconst faqList = $('getFaq1').all().map(f => f.json);\nconst email = $('checkOrCreateCustomer').first().json;\nconst history = $('fetchHistory').first().json;\nreturn [{json: {...email, priceList, faqList, history: Array.isArray(history) ? history : []}}];"
+      },
+      "displayName": "Merge Data",
+      "name": "mergeData1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        0
+      ],
+      "id": "ca9d2897-c8e4-41da-917c-540b13c90117"
+    },
+    {
+      "parameters": {
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/conversations?gmail_thread_id=eq.{{ $json.thread_id }}&select=id",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "displayName": "Find Conversation",
+      "name": "findConversation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1072,
+        0
+      ],
+      "id": "find-conv-001",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('mergeData1').first().json;\nconst conversationResponse = $('findConversation').first().json;\n\nlet conversationId = null;\n\nif (Array.isArray(conversationResponse) && conversationResponse.length > 0) {\n  conversationId = conversationResponse[0].id;\n  return [{json: {...email, conversation_id: conversationId, is_new_conversation: false}}];\n}\n\nconsole.log('checkConversation: Creating new conversation. email_address=', email.email_address);\nreturn [{json: {...email, conversation_id: null, is_new_conversation: true}}];"
+      },
+      "displayName": "Check Conversation",
+      "name": "checkConversation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2896,
+        1936
+      ],
+      "id": "9698bf46-155d-4ac9-92eb-37f0740e77e7"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/conversations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({\n  gmail_thread_id: $json.thread_id,\n  subject: $json.subject,\n  status: \"active\",\n  type: \"general\",\n  assigned_to: \"ai_agent\",\n  customer_id: $json.customer_id || null\n})}}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "displayName": "Create Conversation",
+      "name": "createConversation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        3120,
+        1936
+      ],
+      "id": "f0096b07-9acd-4c64-8111-b1da5fdc4fb1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('checkConversation').first().json;\nconst createResponse = $input.first().json;\n\nlet conversationId = email.conversation_id;\n\nif (!conversationId && createResponse) {\n  if (Array.isArray(createResponse)) {\n    conversationId = createResponse[0]?.id;\n  } else if (createResponse.id) {\n    conversationId = createResponse.id;\n  }\n}\n\nconsole.log('✅ getFinalConversationId:');\nconsole.log('   - conversation_id:', conversationId);\nconsole.log('   - email_address:', email.email_address);\nconsole.log('   - thread_id:', email.thread_id);\nconsole.log('   - subject:', email.subject);\n\nif (!email.email_address) {\n  console.error('⚠️ VARNING: email_address saknas i getFinalConversationId!');\n  console.error('email object keys:', Object.keys(email));\n}\n\nreturn [{json: {...email, conversation_id: conversationId}}];"
+      },
+      "displayName": "Get Final Conv ID",
+      "name": "getFinalConversationId",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3344,
+        1936
+      ],
+      "id": "9dc1328c-a121-4d84-9e42-59e04e3d003c"
+    },
+    {
+      "parameters": {
+        "modelId": "gpt-4",
+        "messages": {
+          "values": [
+            {
+              "content": "Du \u00e4r EventGaragets kundsupport AI. STRIKT: 1. Rekommendera ENDAST produkter nedan 2. Om kunden fr\u00e5gar om n\u00e5got som INTE finns \u2192 s\u00e4g vi inte har det 3. ALDRIG uppfinna produkter\n\n\ud83d\udccb PRODUKTER:\n{{ $json.priceList.map(p => `\u2022 ${p['Product Name'] || p['name']}: ${p['Price Per Day'] || p['price_per_day']} SEK/dag`).join('\\n') }}\n\nREGLER: \u2713 H\u00e4lsa kunden vid namn \u2713 Var personlig och professionell",
+              "role": "system"
+            },
+            {
+              "content": "=Email fr\u00e5n {{ $json.from }}:\n\u00c4mne: {{ $json.subject }}\nMeddelande: {{ $json.body }}\n\nSVAR PERSONLIGT!"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 1000,
+          "temperature": 0.7
+        }
+      },
+      "displayName": "AI Response",
+      "name": "aiResponse1",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        1968,
+        -96
+      ],
+      "id": "e6ab23f1-0d1f-4578-bb7d-ad357656819d",
+      "credentials": {
+        "openAiApi": {
+          "id": "erTJVf7Uoi3QApUy",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $input.first().json;\nlet responseText = '';\nif (aiResponse.message?.content) {\n  responseText = aiResponse.message.content;\n} else if (aiResponse.choices?.[0]?.message?.content) {\n  responseText = aiResponse.choices[0].message.content;\n} else if (typeof aiResponse === 'string') {\n  responseText = aiResponse;\n}\nresponseText = (responseText || '[NO RESPONSE]').toString().trim();\n\n// Get all data from getFinalConversationId\nconst emailData = $('getFinalConversationId').first().json;\nconsole.log('🔍 formatEmail1 - emailData keys:', Object.keys(emailData));\nconsole.log('🔍 formatEmail1 - email_address:', emailData.email_address);\nconsole.log('🔍 formatEmail1 - thread_id:', emailData.thread_id);\nconsole.log('🔍 formatEmail1 - responseText length:', responseText.length);\n\nif (!emailData.email_address) {\n  throw new Error('KRITISKT: email_address saknas i formatEmail1! emailData=' + JSON.stringify(emailData));\n}\n\nreturn [{json: {\n  to: emailData.email_address,\n  subject: `Re: ${emailData.subject}`,\n  html: `<div>${responseText.replace(/\\n/g, '<br/>')}</div>`,\n  responseText,\n  ...emailData\n}}];"
+      },
+      "displayName": "Format Email",
+      "name": "formatEmail1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3792,
+        1840
+      ],
+      "id": "98ff3f41-e00b-4f2c-abea-f6df577569be"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "message": "={{$json.html}}",
+        "options": {}
+      },
+      "displayName": "Send Email",
+      "name": "sendEmail1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        2416,
+        -96
+      ],
+      "id": "cb5087b7-e631-4f7d-890f-3b72ad1eefed",
+      "webhookId": "612831e2-62c8-42db-b194-ff706290c6af",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30lZheVCEHLNKsYy",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $input.first().json;\nconsole.log('\ud83d\udcbe Incoming: conv_id=', email.conversation_id, 'to_email=', email.email_address);\nreturn [{json: {conversation_id: email.conversation_id, gmail_message_id: email.message_id, from_email: email.email_address, to: email.to, subject: email.subject, body: email.body, body_plain: email.body, direction: 'inbound', sender_type: 'customer'}}];"
+      },
+      "displayName": "Prepare Incoming",
+      "name": "prepareIncomingMsg",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        72
+      ],
+      "id": "c575f20d-a5a1-42c4-97ab-49d985f231df"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json)}}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "displayName": "Save Incoming",
+      "name": "saveIncomingMsg",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2416,
+        72
+      ],
+      "id": "ccf0c5be-8016-47df-85ee-c93f84a426d0",
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $input.first().json;\nconsole.log('\ud83d\udcbe Outgoing: conv_id=', email.conversation_id, 'to=', email.email_address);\nreturn [{json: {conversation_id: email.conversation_id, gmail_message_id: email.message_id, from_email: 'ai_agent@eventgaraget.se', to_email: email.email_address, subject: email.subject, body: email.responseText || '', body_plain: email.responseText || '', direction: 'outbound', sender_type: 'ai_agent'}}];"
+      },
+      "displayName": "Prepare Outgoing",
+      "name": "prepareOutgoingMsg",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2192,
+        240
+      ],
+      "id": "02c5031e-ecc9-4f0e-8954-4fc4c1561c7f"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json)}}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "displayName": "Save Outgoing",
+      "name": "saveOutgoingMsg",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        4016,
+        2176
+      ],
+      "id": "0446695e-7638-4b61-a70c-5f2bc7b5f40b",
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {
+              "content": "Klassificera: booking_request eller support_question?\nReturnera JSON: {\"type\": \"...\"}",
+              "role": "system"
+            },
+            {
+              "content": "=Email: {{ $json.body }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 50,
+          "temperature": 0.3
+        }
+      },
+      "displayName": "Classify",
+      "name": "classifyIntent1",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        2192,
+        408
+      ],
+      "id": "e12eb919-4129-49b9-9269-56a1ff973521",
+      "credentials": {
+        "openAiApi": {
+          "id": "erTJVf7Uoi3QApUy",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fallbackOutput": 1,
+        "rules": [
+          {
+            "condition": {
+              "string": {
+                "value1": "={{$json.type}}",
+                "operation": "equals",
+                "value2": "booking_request"
+              }
+            },
+            "output": 0
+          },
+          {
+            "condition": {
+              "string": {
+                "value1": "={{$json.type}}",
+                "operation": "equals",
+                "value2": "support_question"
+              }
+            },
+            "output": 1
+          }
+        ]
+      },
+      "displayName": "Router",
+      "name": "router1",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        2416,
+        408
+      ],
+      "id": "e97989ef-275d-444b-bc56-5f84f6ea7ac1"
+    },
+    {
+      "parameters": {
+        "workflowId": "REPLACE_WITH_WF2_ID",
+        "options": {}
+      },
+      "displayName": "Trigger Quotation",
+      "name": "triggerQuotation1",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [
+        2640,
+        408
+      ],
+      "id": "a42cf295-a26e-4afd-9629-b1e091ad2146"
+    }
+  ],
+  "connections": {
+    "gmailTrigger1": {
+      "main": [
+        [
+          {
+            "node": "extractEmail1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extractEmail1": {
+      "main": [
+        [
+          {
+            "node": "checkCustomer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "checkCustomer": {
+      "main": [
+        [
+          {
+            "node": "checkOrCreateCustomer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "checkOrCreateCustomer": {
+      "main": [
+        [
+          {
+            "node": "fetchHistory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fetchHistory": {
+      "main": [
+        [
+          {
+            "node": "getPriceList1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "getPriceList1": {
+      "main": [
+        [
+          {
+            "node": "getFaq1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "getFaq1": {
+      "main": [
+        [
+          {
+            "node": "mergeData1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "mergeData1": {
+      "main": [
+        [
+          {
+            "node": "findConversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "findConversation": {
+      "main": [
+        [
+          {
+            "node": "checkConversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "checkConversation": {
+      "main": [
+        [
+          {
+            "node": "createConversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "createConversation": {
+      "main": [
+        [
+          {
+            "node": "getFinalConversationId",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "getFinalConversationId": {
+      "main": [
+        [
+          {
+            "node": "aiResponse1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "classifyIntent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "aiResponse1": {
+      "main": [
+        [
+          {
+            "node": "formatEmail1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "formatEmail1": {
+      "main": [
+        [
+          {
+            "node": "sendEmail1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "prepareIncomingMsg",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "prepareOutgoingMsg",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepareIncomingMsg": {
+      "main": [
+        [
+          {
+            "node": "saveIncomingMsg",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepareOutgoingMsg": {
+      "main": [
+        [
+          {
+            "node": "saveOutgoingMsg",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "classifyIntent1": {
+      "main": [
+        [
+          {
+            "node": "router1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "router1": {
+      "main": [
+        [
+          {
+            "node": "triggerQuotation1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4a88ff8272839a3037c3a37b8392227d54ce1cd60ae5d0250b6140753119fda2"
+  }
+}

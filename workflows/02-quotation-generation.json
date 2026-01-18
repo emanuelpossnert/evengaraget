@@ -1,0 +1,370 @@
+{
+  "name": "02-quotation-generation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "quotation-webhook",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        0
+      ],
+      "webhookId": "quotation-webhook"
+    },
+    {
+      "parameters": {
+        "resource": "Row",
+        "operation": "get",
+        "tableId": "bookings",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.body.record.id }}"
+            }
+          ]
+        }
+      },
+      "id": "2",
+      "name": "Get Booking",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Row",
+        "operation": "get",
+        "tableId": "customers",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.customer_id }}"
+            }
+          ]
+        }
+      },
+      "id": "3",
+      "name": "Get Customer",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        -200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "List",
+        "operation": "getAll",
+        "tableId": "addons",
+        "returnAll": true
+      },
+      "id": "4",
+      "name": "Get All Addons",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate UUID v4-like token\nconst uuid = () => {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {\n    var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);\n    return v.toString(16);\n  });\n};\nconst token = uuid();\n\nconst booking = $('Get Booking').first().json;\nconst customer = $('Get Customer').first().json;\nconst addons = $('Get All Addons').all().map(a => a.json);\n\nconsole.log('🎟️ Generating quotation token:', token.substring(0, 16) + '...');\nconsole.log('📦 Booking:', booking.id);\nconsole.log('👤 Customer:', customer.email);\nconsole.log('📝 Addons available:', addons.length);\n\nreturn [{\n  json: {\n    token,\n    booking,\n    customer,\n    addons,\n    quotation_url: `http://localhost:3000/quotation/${token}`\n  }\n}];"
+      },
+      "id": "5",
+      "name": "Generate Token & URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "Row",
+        "operation": "create",
+        "tableId": "quotations",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "booking_id",
+              "fieldValue": "={{ $json.booking.id }}"
+            },
+            {
+              "fieldId": "customer_id",
+              "fieldValue": "={{ $json.customer.id }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "pending"
+            },
+            {
+              "fieldId": "quotation_number",
+              "fieldValue": "={{ $json.booking.booking_number }}-{{ $json.token.substring(0, 8) }}"
+            },
+            {
+              "fieldId": "total_amount",
+              "fieldValue": "={{ $json.booking.total_amount || 0 }}"
+            },
+            {
+              "fieldId": "signature_token",
+              "fieldValue": "={{ $json.token }}"
+            },
+            {
+              "fieldId": "valid_until",
+              "fieldValue": "={{ new Date(new Date().getTime() + 30*24*60*60*1000).toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "6",
+      "name": "Create Quotation",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        200,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const booking = $('Generate Token & URL').first().json.booking;\nconst customer = $('Generate Token & URL').first().json.customer;\nconst quotation = $('Create Quotation').first().json;\nconst addons = $('Generate Token & URL').first().json.addons;\nconst quotation_url = $('Generate Token & URL').first().json.quotation_url;\n\nconsole.log('📧 Building email for:', customer.email);\n\n// Parse products requested\nlet productsHtml = '';\ntry {\n  const products = JSON.parse(booking.products_requested || '[]');\n  productsHtml = products.map(p => `\n    <tr>\n      <td style=\"padding: 10px; border-bottom: 1px solid #eee;\">${p.name || 'Produkt'}</td>\n      <td style=\"padding: 10px; border-bottom: 1px solid #eee; text-align: right;\">${p.quantity || 1}</td>\n      <td style=\"padding: 10px; border-bottom: 1px solid #eee; text-align: right;\">${(p.quantity || 1) * (p.price || 0)} SEK</td>\n    </tr>\n  `).join('');\n} catch (e) {\n  console.log('⚠️ Could not parse products:', e.message);\n}\n\n// Available addons\nconst addonsHtml = addons.slice(0, 4).map(a => `\n  <div style=\"padding: 8px; background: #f9f9f9; border-radius: 4px; margin-bottom: 5px;\">\n    <input type=\"checkbox\" id=\"addon_${a.id}\" name=\"addon\" value=\"${a.id}\" />\n    <label for=\"addon_${a.id}\" style=\"margin-left: 5px;\">${a.name} (${a.price} SEK)</label>\n  </div>\n`).join('');\n\nconst htmlContent = `\n<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;\">\n  <div style=\"background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;\">\n    <h1 style=\"margin: 0; font-size: 28px;\">📋 Din Offert från EventGaraget</h1>\n    <p style=\"margin: 10px 0 0 0; font-size: 14px; opacity: 0.9;\">Vi har förberett en personlig offert för dig</p>\n  </div>\n  \n  <div style=\"background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);\">\n    <div style=\"margin-bottom: 30px;\">\n      <h2 style=\"font-size: 16px; color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px;\">📌 Bokningsinformation</h2>\n      <p style=\"margin: 10px 0;\"><strong>Namn:</strong> ${customer.name || 'N/A'}</p>\n      <p style=\"margin: 10px 0;\"><strong>Email:</strong> ${customer.email || 'N/A'}</p>\n      <p style=\"margin: 10px 0;\"><strong>Telefon:</strong> ${customer.phone || 'N/A'}</p>\n      <p style=\"margin: 10px 0;\"><strong>Företag:</strong> ${customer.company_name || 'Privat'}</p>\n    </div>\n    \n    <div style=\"margin-bottom: 30px;\">\n      <h2 style=\"font-size: 16px; color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px;\">📦 Produkter</h2>\n      <table style=\"width: 100%; border-collapse: collapse;\">\n        <tr style=\"background: #f5f5f5; font-weight: bold;\">\n          <td style=\"padding: 10px; border: 1px solid #ddd;\">Produkt</td>\n          <td style=\"padding: 10px; border: 1px solid #ddd; text-align: right;\">Antal</td>\n          <td style=\"padding: 10px; border: 1px solid #ddd; text-align: right;\">Pris</td>\n        </tr>\n        ${productsHtml}\n      </table>\n    </div>\n    \n    <div style=\"margin-bottom: 30px; background: #f0f4ff; padding: 20px; border-radius: 8px;\">\n      <h2 style=\"font-size: 16px; color: #667eea; margin-top: 0;\">➕ Valfria Tillägg</h2>\n      <p style=\"font-size: 12px; color: #666; margin-bottom: 15px;\">Du kan välja följande tillägg för att förbättra din upplevelse:</p>\n      ${addonsHtml}\n    </div>\n    \n    <div style=\"text-align: center; margin-bottom: 30px;\">\n      <a href=\"${quotation_url}\" style=\"display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;\">✍️ Granska & Signera Offert</a>\n    </div>\n    \n    <div style=\"border-top: 1px solid #eee; padding-top: 20px; font-size: 12px; color: #999;\">\n      <p style=\"margin: 5px 0;\">EventGaraget AB</p>\n      <p style=\"margin: 5px 0;\">📧 booking@eventgaraget.se</p>\n      <p style=\"margin: 5px 0;\">🌐 www.eventgaraget.se</p>\n    </div>\n  </div>\n</div>\n`;\n\nreturn [{\n  json: {\n    to: customer.email,\n    subject: `📋 Din offert från EventGaraget är klar för ${booking.event_date || 'hendelsen'}`,\n    html: htmlContent,\n    booking_id: booking.id,\n    customer_id: customer.id,\n    quotation_id: quotation.id,\n    quotation_url: quotation_url\n  }\n}];"
+      },
+      "id": "7",
+      "name": "Build Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "admin@striky.se",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "htmlUi": {
+          "html": "={{ $json.html }}"
+        }
+      },
+      "id": "8",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        400,
+        200
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Gmail-Admin",
+          "name": "Gmail (Admin)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Row",
+        "operation": "update",
+        "tableId": "bookings",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.booking.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "booking_status",
+              "fieldValue": "quotation_sent"
+            }
+          ]
+        }
+      },
+      "id": "9",
+      "name": "Update Booking Status",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const emailSent = $('Send Email').first().json;\nconst quotation = $('Create Quotation').first().json;\n\nconsole.log('✅ Quotation workflow completed!');\nconsole.log('📧 Email sent to:', emailSent.to);\nconsole.log('🎟️ Quotation ID:', quotation.id);\n\nreturn [{\n  json: {\n    success: true,\n    quotation_id: quotation.id,\n    email_sent: emailSent.to,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "10",
+      "name": "Success Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Booking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Booking": {
+      "main": [
+        [
+          {
+            "node": "Get Customer",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get All Addons",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Customer": {
+      "main": [
+        [
+          {
+            "node": "Generate Token & URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Addons": {
+      "main": [
+        [
+          {
+            "node": "Generate Token & URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Token & URL": {
+      "main": [
+        [
+          {
+            "node": "Create Quotation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Quotation": {
+      "main": [
+        [
+          {
+            "node": "Update Booking Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Success Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Booking Status": {
+      "main": [
+        [
+          {
+            "node": "Success Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}

@@ -1,0 +1,425 @@
+{
+  "name": "01 Email Classification (WORKING)",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "customers",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "email",
+              "keyValue": "=={{ $json.email_address }}"
+            }
+          ]
+        }
+      },
+      "name": "checkCustomer",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [800, 2080],
+      "id": "560fe69d-f574-464d-8251-e8966d50cf4f",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('extractEmail1').first().json;\nconst customerResponse = $input.first().json;\nconst customerExists = Array.isArray(customerResponse) && customerResponse.length > 0;\nlet customerId = null;\nif (customerExists) {\n  customerId = customerResponse[0].id;\n  console.log('✅ Customer found:', customerId);\n  return [{json: {customer_id: customerId, is_new: false, ...email}}];\n}\nconsole.log('📝 New customer:', email.email_address);\nreturn [{json: {customer_id: null, is_new: true, ...email}}];"
+      },
+      "name": "checkOrCreate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1024, 2080],
+      "id": "507da9d8-9b10-410d-a979-7ee70803537b"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "messages",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "from_email",
+              "keyValue": "= {{ $json.email_address }}"
+            }
+          ]
+        }
+      },
+      "name": "fetchHistory",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1248, 2080],
+      "id": "2d8c7a1d-3289-4272-a40c-ddc49c8093e7",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "gmail_thread_id",
+              "keyValue": "={{ $json.thread_id }}"
+            }
+          ]
+        }
+      },
+      "name": "findConversation",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2144, 2080],
+      "id": "56d7d59b-b311-4399-88b0-c11227aea5e7",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('mergeData1').first().json;\nconst convResponse = $input.first().json;\nlet conversationId = null;\nif (Array.isArray(convResponse) && convResponse.length > 0) {\n  conversationId = convResponse[0].id;\n  console.log('✅ Found conversation:', conversationId);\n  return [{json: {...email, conversation_id: conversationId, is_new: false}}];\n}\nconsole.log('📝 New conversation for:', email.email_address);\nreturn [{json: {...email, conversation_id: null, is_new: true}}];"
+      },
+      "name": "checkConversation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2368, 2080],
+      "id": "58fbd86e-59bb-4a00-9322-ed40a2b088fc"
+    },
+    {
+      "parameters": {
+        "tableId": "conversations",
+        "fieldsUi": {
+          "fieldValues": [
+            {"fieldId": "gmail_thread_id", "fieldValue": "={{ $json.thread_id }}"},
+            {"fieldId": "subject", "fieldValue": "={{ $json.subject }}"},
+            {"fieldId": "status", "fieldValue": "active"},
+            {"fieldId": "type", "fieldValue": "general"},
+            {"fieldId": "assigned_to", "fieldValue": "ai_support"},
+            {"fieldId": "customer_id", "fieldValue": "={{ $json.customer_id }}"}
+          ]
+        }
+      },
+      "name": "createConversation",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2592, 2080],
+      "id": "4601f7e6-c07c-4edb-8500-2ecf27364866",
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $('checkConversation').first().json;\nconst createResp = $input.first().json;\nlet convId = email.conversation_id;\nif (!convId && createResp) {\n  if (Array.isArray(createResp)) {\n    convId = createResp[0]?.id;\n  } else if (createResp.id) {\n    convId = createResp.id;\n  }\n}\nconsole.log('✅ Conv ID:', convId, 'Customer:', email.email_address);\nreturn [{json: {...email, conversation_id: convId}}];"
+      },
+      "name": "getFinalConvId",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2816, 2080],
+      "id": "50c8526b-c633-4215-9471-93127b30cf4a"
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $input.first().json;\nconsole.log('💾 Incoming from:', email.email_address, '(customer)');\nreturn [{json: {conversation_id: email.conversation_id, gmail_message_id: email.message_id, from_email: email.email_address, to_email: email.agent_email, subject: email.subject, body: email.body, body_plain: email.body, direction: 'inbound', sender_type: 'customer'}}];"
+      },
+      "name": "prepareIncoming",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3616, 1888],
+      "id": "00386d61-10b6-45a7-9934-6bf092a6aaee"
+    },
+    {
+      "parameters": {
+        "tableId": "messages",
+        "fieldsUi": {
+          "fieldValues": [
+            {"fieldId": "conversation_id", "fieldValue": "={{ $json.conversation_id }}"},
+            {"fieldId": "gmail_message_id", "fieldValue": "={{ $json.gmail_message_id }}+ '_in'"},
+            {"fieldId": "from_email", "fieldValue": "={{ $json.from_email }}"},
+            {"fieldId": "to_email", "fieldValue": "={{ $json.to_email }}"},
+            {"fieldId": "subject", "fieldValue": "={{ $json.subject }}"},
+            {"fieldId": "body", "fieldValue": "={{ $json.body }}"},
+            {"fieldId": "body_plain", "fieldValue": "={{ $json.body_plain }}"},
+            {"fieldId": "direction", "fieldValue": "={{ $json.direction }}"},
+            {"fieldId": "sender_type", "fieldValue": "={{ $json.sender_type }}"}
+          ]
+        }
+      },
+      "name": "saveIncoming",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3840, 1888],
+      "id": "e292dff0-6128-421e-8ecb-a3b844cda78b",
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $input.first().json;\nconsole.log('💾 Outgoing to:', email.email_address, '(customer)');\nreturn [{json: {conversation_id: email.conversation_id, gmail_message_id: email.message_id, from_email: email.agent_email, to_email: email.email_address, subject: email.subject, body: email.responseText || '', body_plain: email.responseText || '', direction: 'outbound', sender_type: 'ai_support'}}];"
+      },
+      "name": "prepareOutgoing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3616, 2080],
+      "id": "14031ff1-ba9d-48f5-929d-8f13d247801d"
+    },
+    {
+      "parameters": {
+        "tableId": "messages",
+        "fieldsUi": {
+          "fieldValues": [
+            {"fieldId": "conversation_id", "fieldValue": "={{ $json.conversation_id }}"},
+            {"fieldId": "gmail_message_id", "fieldValue": "={{ $json.gmail_message_id }}+ '_out'"},
+            {"fieldId": "from_email", "fieldValue": "={{ $json.from_email }}"},
+            {"fieldId": "to_email", "fieldValue": "={{ $json.to_email }}"},
+            {"fieldId": "subject", "fieldValue": "={{ $json.subject }}"},
+            {"fieldId": "body", "fieldValue": "={{ $json.body }}"},
+            {"fieldId": "body_plain", "fieldValue": "={{ $json.body_plain }}"},
+            {"fieldId": "direction", "fieldValue": "={{ $json.direction }}"},
+            {"fieldId": "sender_type", "fieldValue": "={{ $json.sender_type }}"}
+          ]
+        }
+      },
+      "name": "saveOutgoing",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3840, 2080],
+      "id": "8ffc424b-5ef3-406a-9097-e3e28abe5d1c",
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {"item": [{"mode": "everyMinute"}]},
+        "filters": {"includeSpamTrash": false, "labelIds": ["INBOX"]}
+      },
+      "name": "gmailTrigger1",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [352, 2080],
+      "id": "ce20a42b-1569-432c-83be-04795b7c4a68",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30lZheVCEHLNKsYy",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const gmailData = $input.first().json;\nconst emailMatch = gmailData.From.match(/<(.+?)>/) || gmailData.From.match(/([^\\s@]+@[^\\s@]+\\.[^\\s@]+)/);\nconst name = gmailData.From.split('<')[0].trim() || 'Kund';\nconst customerEmail = emailMatch ? emailMatch[1] : gmailData.From.trim();\nconsole.log('📧 Email from CUSTOMER:', customerEmail);\nreturn [{json: {thread_id: gmailData.threadId, message_id: gmailData.id, from: gmailData.From, agent_email: gmailData.To, subject: gmailData.Subject, body: gmailData.snippet || '', email_address: customerEmail, name: name}}];"
+      },
+      "name": "extractEmail1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [576, 2080],
+      "id": "ddaed010-1482-420a-b8b2-15ec215c684f"
+    },
+    {
+      "parameters": {
+        "documentId": {"__rl": true, "value": "1yiEYoKFYx-Y018NiL2sg54lXjq_CjJ1DGtbuVv1cGsw", "mode": "list"},
+        "sheetName": {"__rl": true, "value": 1874648354, "mode": "list"},
+        "options": {}
+      },
+      "name": "getPriceList1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1472, 2080],
+      "id": "a4b9c212-87d7-41ae-a528-5a8b7508ec70",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rImZoR2a92JfJBoa",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {"__rl": true, "value": "1gX3lQ5Ns5n5-cwqT4fAuU3Spcx86UtUPcUeWPNj2tAQ", "mode": "list"},
+        "sheetName": {"__rl": true, "value": 1663703534, "mode": "list"},
+        "options": {}
+      },
+      "name": "getFaq1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1696, 2080],
+      "id": "5bd85029-708d-41d5-9196-5021a43c671b",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rImZoR2a92JfJBoa",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const priceList = $('getPriceList1').all().map(p => p.json);\nconst faqList = $('getFaq1').all().map(f => f.json);\nconst email = $('checkOrCreate').first().json;\nconst history = $('fetchHistory').first().json;\nreturn [{json: {...email, priceList, faqList, history: Array.isArray(history) ? history : []}}];"
+      },
+      "name": "mergeData1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 2080],
+      "id": "2cfd1a9a-20f8-44c4-9758-80b341b4d7a3"
+    },
+    {
+      "parameters": {
+        "modelId": "gpt-4",
+        "messages": {
+          "values": [
+            {"content": "Du är EventGaragets kundsupport. REGLER:\n1. Rekommendera ENDAST produkter från listan\n2. Om produkt saknas → säg det\n3. ALDRIG uppfinna produkter\n4. Svara personligt\n\nPRODUKTER:\n{{ $json.priceList.map(p => `• ${p.Name || p.name}: ${p['Price Per Day'] || p.price_per_day} SEK/dag`).join('\\n') }}", "role": "system"},
+            {"content": "=Från: {{ $json.name }}\nÄmne: {{ $json.subject }}\nMeddelande: {{ $json.body }}"}
+          ]
+        },
+        "options": {"maxTokens": 500, "temperature": 0.7}
+      },
+      "name": "aiResponse1",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [3040, 1888],
+      "id": "52333e06-2fdc-4ab7-bf1d-2c413be2cfd2",
+      "credentials": {
+        "openAiApi": {
+          "id": "erTJVf7Uoi3QApUy",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $input.first().json;\nlet responseText = '';\nif (aiResponse.message?.content) {\n  responseText = aiResponse.message.content;\n} else if (aiResponse.choices?.[0]?.message?.content) {\n  responseText = aiResponse.choices[0].message.content;\n} else if (typeof aiResponse === 'string') {\n  responseText = aiResponse;\n}\nresponseText = (responseText || '[NO RESPONSE]').toString().trim();\n\nconst emailData = $('getFinalConvId').first().json;\nconsole.log('📧 SENDING TO CUSTOMER:', emailData.email_address);\n\nif (!emailData.email_address) {\n  throw new Error('CRITICAL: email_address missing!');\n}\n\nreturn [{json: {to: emailData.email_address, subject: `Re: ${emailData.subject}`, html: `<div>${responseText.replace(/\\n/g, '<br/>')}</div>`, responseText, conversation_id: emailData.conversation_id, message_id: emailData.message_id, agent_email: emailData.agent_email, body: emailData.body, email_address: emailData.email_address}}];"
+      },
+      "name": "formatEmail1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3392, 1888],
+      "id": "fd2acbef-3212-4388-a25d-f9dd542eaf5e"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "message": "={{$json.html}}",
+        "options": {}
+      },
+      "name": "sendEmail1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [3616, 1696],
+      "id": "8cd67912-79bf-4d9e-81ed-1caddb9ff6f2",
+      "webhookId": "0674ff58-1773-4b9c-90d9-d1607177abdb",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30lZheVCEHLNKsYy",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {"content": "Klassificera email:\n- \"booking_request\" om kund vill hyra/boka\n- \"support_question\" om bara frågor\n\nReturnera JSON: {\"type\": \"booking_request\" eller \"support_question\"}", "role": "system"},
+            {"content": "=Email: {{ $json.body }}"}
+          ]
+        },
+        "options": {"maxTokens": 50, "temperature": 0.3}
+      },
+      "name": "classifyIntent1",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [3040, 2272],
+      "id": "72eede02-94ad-486e-8081-ee32fe3536e3",
+      "credentials": {
+        "openAiApi": {
+          "id": "erTJVf7Uoi3QApUy",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict"},
+                "conditions": [{"leftValue": "={{ $json.type }}", "rightValue": "booking_request", "operator": {"type": "string", "operation": "equals"}}],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "booking"
+            }
+          ]
+        },
+        "options": {"fallbackOutput": "single"}
+      },
+      "name": "router1",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [3392, 2272],
+      "id": "fcc979ed-2976-44ca-a188-5bd357e010c0"
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $env.QUOTATION_WORKFLOW_ID || 'REPLACE_WITH_WF2_ID' }}",
+        "options": {}
+      },
+      "name": "triggerQuotation1",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [3616, 2272],
+      "id": "31e2bc3a-18d3-4bd1-95e9-7f98bba4356b"
+    }
+  ],
+  "connections": {
+    "checkCustomer": {"main": [[{"node": "checkOrCreate", "type": "main", "index": 0}]]},
+    "checkOrCreate": {"main": [[{"node": "fetchHistory", "type": "main", "index": 0}]]},
+    "fetchHistory": {"main": [[{"node": "getPriceList1", "type": "main", "index": 0}]]},
+    "findConversation": {"main": [[{"node": "checkConversation", "type": "main", "index": 0}]]},
+    "checkConversation": {"main": [[{"node": "createConversation", "type": "main", "index": 0}]]},
+    "createConversation": {"main": [[{"node": "getFinalConvId", "type": "main", "index": 0}]]},
+    "getFinalConvId": {"main": [[{"node": "aiResponse1", "type": "main", "index": 0}, {"node": "classifyIntent1", "type": "main", "index": 0}]]},
+    "prepareIncoming": {"main": [[{"node": "saveIncoming", "type": "main", "index": 0}]]},
+    "prepareOutgoing": {"main": [[{"node": "saveOutgoing", "type": "main", "index": 0}]]},
+    "gmailTrigger1": {"main": [[{"node": "extractEmail1", "type": "main", "index": 0}]]},
+    "extractEmail1": {"main": [[{"node": "checkCustomer", "type": "main", "index": 0}]]},
+    "getPriceList1": {"main": [[{"node": "getFaq1", "type": "main", "index": 0}]]},
+    "getFaq1": {"main": [[{"node": "mergeData1", "type": "main", "index": 0}]]},
+    "mergeData1": {"main": [[{"node": "findConversation", "type": "main", "index": 0}]]},
+    "aiResponse1": {"main": [[{"node": "formatEmail1", "type": "main", "index": 0}]]},
+    "formatEmail1": {"main": [[{"node": "sendEmail1", "type": "main", "index": 0}, {"node": "prepareIncoming", "type": "main", "index": 0}, {"node": "prepareOutgoing", "type": "main", "index": 0}]]},
+    "classifyIntent1": {"main": [[{"node": "router1", "type": "main", "index": 0}]]},
+    "router1": {"main": [[{"node": "triggerQuotation1", "type": "main", "index": 0}], []]}
+  },
+  "pinData": {},
+  "settings": {},
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0
+}

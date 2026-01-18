@@ -1,0 +1,133 @@
+{
+    "nodes": [
+      {
+        "parameters": {
+          "trigger": "on",
+          "unit": "days",
+          "value": 1,
+          "triggerAtHour": 1,
+          "triggerAtMinute": 0
+        },
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [0, 0],
+        "name": "Schedule - Daily at 1 AM",
+        "id": "schedule-sync"
+      },
+      {
+        "parameters": {
+          "documentId": {
+            "__rl": true,
+            "value": "1yiEYoKFYx-Y018NiL2sg54lXjq_CjJ1DGtbuVv1cGsw",
+            "mode": "list"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": 1874648354,
+            "mode": "list"
+          }
+        },
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4,
+        "position": [250, 0],
+        "name": "Get Products from Sheets",
+        "id": "get-sheets",
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "rImZoR2a92JfJBoa",
+            "name": "Google Sheets account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Formatera produkter från Google Sheets\nconst products = $input.all().map(p => p.json);\nconsole.log('📦 Got', products.length, 'products from Sheets');\n\nreturn products.map(p => ({\n  json: {\n    name: p.Name || p.name,\n    price_per_day: parseFloat(p['Price Per Day'] || p.price_per_day || 0),\n    description: p.Description || p.description || '',\n    wrappable: (p.Wrappable || p.wrappable || 'no').toLowerCase() === 'yes'\n  }\n}));"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [500, 0],
+        "name": "Format Products",
+        "id": "format-products"
+      },
+      {
+        "parameters": {
+          "operation": "delete",
+          "tableId": "products"
+        },
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [750, -100],
+        "name": "Clear Old Products",
+        "id": "clear-products",
+        "credentials": {
+          "supabaseApi": {
+            "id": "BapfQjee2z3IICBv",
+            "name": "Eventgaraget"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "tableId": "products",
+          "fieldsUi": {
+            "fieldValues": [
+              {
+                "fieldId": "name",
+                "fieldValue": "={{ $json.name }}"
+              },
+              {
+                "fieldId": "price_per_day",
+                "fieldValue": "={{ $json.price_per_day }}"
+              },
+              {
+                "fieldId": "description",
+                "fieldValue": "={{ $json.description }}"
+              },
+              {
+                "fieldId": "wrappable",
+                "fieldValue": "={{ $json.wrappable }}"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.supabase",
+        "typeVersion": 1,
+        "position": [750, 100],
+        "name": "Insert New Products",
+        "id": "insert-products",
+        "credentials": {
+          "supabaseApi": {
+            "id": "BapfQjee2z3IICBv",
+            "name": "Eventgaraget"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const count = $input.first().json.length;\nconsole.log('✅ Synced', count, 'products to Supabase');"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [1000, 0],
+        "name": "Log Success",
+        "id": "log-success"
+      }
+    ],
+    "connections": {
+      "Schedule - Daily at 1 AM": {
+        "main": [[{"node": "Get Products from Sheets", "type": "main", "index": 0}]]
+      },
+      "Get Products from Sheets": {
+        "main": [[{"node": "Format Products", "type": "main", "index": 0}]]
+      },
+      "Format Products": {
+        "main": [[
+          {"node": "Clear Old Products", "type": "main", "index": 0},
+          {"node": "Insert New Products", "type": "main", "index": 0}
+        ]]
+      },
+      "Insert New Products": {
+        "main": [[{"node": "Log Success", "type": "main", "index": 0}]]
+      }
+    }
+  }

@@ -1,0 +1,683 @@
+{
+    "nodes": [
+      {
+        "parameters": {
+        "jsCode": "const aiOutput = $('🤖 AI Orchestrator - Extract Core Data1').first().json;\nconst products = aiOutput.products || [];\n\nif (!Array.isArray(products)) {\n  throw new Error('Expected an array of products from AI Orchestrator');\n}\n\nif (products.length === 0) {\n  return [{\n    json: {\n      names: \"''\"\n    }\n  }];\n}\n\nconst formattedNames = products.map(p => `'${p.replace(/'/g, \"''\")}'`).join(',');\n\nreturn [{\n  json: {\n    names: formattedNames\n  }\n}];"
+      },
+      "name": "Prepare Product Query",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+      "position": [
+        2704,
+        4000
+      ],
+      "id": "3a5d826d-3936-4972-938d-7c8273be3903"
+      },
+      {
+        "parameters": {
+          "modelId": "gpt-4o-mini",
+          "messages": {
+            "values": [
+              {
+                "content": "Du är EventGaragets AI Orchestrator. Analysera email och extrahera:\n1. Produktnamn (array)\n2. Grundläggande kundinfo\n3. FAQ-frågor (array)\n\nReturnera ENDAST JSON:\n{\"products\":[\"produkt1\"],\"customer_info\":{\"name\":\"...\"},\"extracted_questions\":[\"fråga\"]}",
+                "role": "system"
+              },
+              {
+                "content": "=Från: {{ $json.from }}\nÄmne: {{ $json.subject }}\n\nMeddelande:\n{{ $json.body }}\n\nKundkontext:\n{{ $json.customer_context }}"
+              }
+            ]
+          },
+          "options": {
+            "maxTokens": 500,
+            "temperature": 0.2,
+            "responseFormat": "json_object"
+          }
+        },
+      "name": "🤖 AI Orchestrator - Extract Core Data1",
+        "type": "@n8n/n8n-nodes-langchain.openAi",
+        "typeVersion": 1,
+      "position": [
+        2592,
+        4160
+      ],
+      "id": "33c43a6c-b358-44bb-be08-201f24bffd67",
+        "credentials": {
+        "openAiApi": {
+          "id": "erTJVf7Uoi3QApUy",
+          "name": "OpenAi account 2"
+        }
+        }
+      },
+      {
+        "parameters": {
+        "method": "GET",
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/products?select=name,base_price_per_day&name=in.({{ $node['Prepare Product Query'].json['names'] }})",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "🔍 Validate Products with Supabase1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2944,
+        4160
+      ],
+      "id": "57c031dd-6418-4184-b2f4-f8bdb6adb72f",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+        }
+      },
+      {
+        "parameters": {
+        "jsCode": "const requestedProducts = $('🤖 AI Orchestrator - Extract Core Data1').first().json.products || [];\nconst validProducts = $('🔍 Validate Products with Supabase1').all().map(p => p.json.name);\n\nconst invalidProducts = requestedProducts.filter(p => !validProducts.includes(p));\n\nif (invalidProducts.length > 0) {\n  return [{\n    json: {\n      action: 'invalid_products',\n      message: `Tyvärr saknar vi: ${invalidProducts.join(', ')}. I katalogen finns: Partytält 3x3m, Partytält 4x4m, Partytält 4x8m, Partytält 6x12m, Bord 180cm, Stol vit, Golv trä (per kvm), Värmepump 9kW, Lysrör LED, Grillstation`\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    action: 'valid_products',\n    products: validProducts\n  }\n}];"
+        },
+      "name": "⚙️ Handle Product Validation1",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+      "position": [
+        3168,
+        4160
+      ],
+      "id": "4a9ba38e-768c-4097-9e36-db2d03e81ea9"
+      },
+      {
+        "parameters": {
+          "rules": [
+          {
+            "condition": {
+              "string": {
+                "value1": "={{$json.action}}",
+                "operation": "equals",
+                "value2": "valid_products"
+              }
+            },
+            "output": 0
+          },
+            {
+              "condition": {
+                "string": {
+                  "value1": "={{$json.action}}",
+                  "operation": "equals",
+                  "value2": "invalid_products"
+                }
+              },
+              "output": 1
+            }
+        ],
+        "fallbackOutput": 0
+        },
+      "name": "Router - Product Validation1",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 1,
+      "position": [
+        3392,
+        4128
+      ],
+      "id": "5b22aea0-4ac4-410c-89d4-bfea157470e2"
+      },
+      {
+        "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst customer = $('🤖 AI Orchestrator - Extract Core Data1').first().json.customer_info;\n\nreturn {\n  to: customer.email || 'noreply@eventgaraget.se',\n  subject: 'Produktförfrågan - EventGaraget',\n  html: `<p>Hej ${customer.name || 'där'}!</p>\n       <p>${response.message}</p>\n       <p>Mvh,<br/>EventGaraget</p>`\n};"
+        },
+      "name": "📧 Format Product Response1",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+      "position": [
+        4256,
+        4352
+      ],
+      "id": "03a5f538-1bff-4c5b-97a4-9a4a1d5b20d1"
+      },
+      {
+        "parameters": {
+          "modelId": "gpt-3.5-turbo",
+          "messages": {
+            "values": [
+              {
+                "content": "Du är EventGaragets AI-agent. Klassificera email:\n- quote_request: Prisfråga\n- booking_request: Bokningsförfrågan\n- support_question: FAQ\n\nSVARA MED JSON: {\"classification\":\"...\",\"missing_info\":[...]}",
+                "role": "system"
+              },
+              {
+              "content": "=Kund: {{JSON.stringify($('🤖 AI Orchestrator - Extract Core Data1').first().json.customer_info)}}\n\nProdukter: {{JSON.stringify($('⚙️ Handle Product Validation1').first().json.products)}}\n\nMeddelande:\n{{$('Extract Email Data3').first().json.body}}"
+              }
+            ]
+          },
+          "options": {
+            "maxTokens": 800,
+            "temperature": 0.3,
+            "responseFormat": "json_object"
+          }
+        },
+      "name": "🤖 AI Agent - Classify Request1",
+        "type": "@n8n/n8n-nodes-langchain.openAi",
+        "typeVersion": 1,
+      "position": [
+        3616,
+        4064
+      ],
+      "id": "d27e6279-1be8-409e-9dd1-264e1866506c",
+        "credentials": {
+        "openAiApi": {
+          "id": "erTJVf7Uoi3QApUy",
+          "name": "OpenAi account 2"
+        }
+        }
+      },
+      {
+        "parameters": {
+          "rules": [
+            {
+              "condition": {
+                "string": {
+                  "value1": "={{$json.classification}}",
+                  "operation": "equals",
+                  "value2": "quote_request"
+                }
+              },
+            "output": 0
+            },
+            {
+              "condition": {
+                "string": {
+                  "value1": "={{$json.classification}}",
+                  "operation": "equals",
+                  "value2": "support_question"
+                }
+              },
+            "output": 1
+            }
+          ],
+          "fallbackOutput": 0
+        },
+      "name": "Router - Request Type1",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 1,
+      "position": [
+        3968,
+        4032
+      ],
+      "id": "b58fd791-bbe0-440d-bf8f-47c4f0072062"
+      },
+      {
+        "parameters": {
+          "modelId": "gpt-3.5-turbo",
+          "messages": {
+            "values": [
+              {
+              "content": "Generera offert baserat på:\nPrislista: {{JSON.stringify($('Get Price List3').all())}}\n\nReturnera JSON: {\"products\":[...],\"total\":X,\"email_response\":\"...\"}",
+                "role": "system"
+              },
+              {
+              "content": "=Kundinfo: {{JSON.stringify($('🤖 AI Orchestrator - Extract Core Data1').first().json.customer_info)}}\n\nProdukter: {{JSON.stringify($('⚙️ Handle Product Validation1').first().json.products)}}"
+              }
+            ]
+          },
+          "options": {
+            "maxTokens": 700,
+            "temperature": 0.3,
+            "responseFormat": "json_object"
+          }
+        },
+      "name": "🤖 AI Agent - Generate Quote1",
+        "type": "@n8n/n8n-nodes-langchain.openAi",
+        "typeVersion": 1,
+      "position": [
+        4192,
+        3968
+      ],
+      "id": "1267b4a5-62f7-4836-b57c-934575a33d03",
+        "credentials": {
+        "openAiApi": {
+          "id": "erTJVf7Uoi3QApUy",
+          "name": "OpenAi account 2"
+        }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/bookings",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "booking_number",
+              "value": "={{$('🤖 AI Agent - Generate Quote1').first().json.booking_number || 'BK-' + Date.now()}}"
+            },
+            {
+              "name": "total_amount",
+              "value": "={{$('🤖 AI Agent - Generate Quote1').first().json.total}}"
+            },
+            {
+              "name": "status",
+              "value": "draft"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "💾 Save Booking to Supabase1",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4,
+      "position": [
+        4544,
+        3968
+      ],
+      "id": "6f2aae35-76e9-42b4-9c12-52d86251b67a",
+        "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+        }
+      },
+      {
+        "parameters": {
+          "modelId": "gpt-3.5-turbo",
+          "messages": {
+            "values": [
+              {
+              "content": "Svara på FAQ baserat på:\nFAQ: {{JSON.stringify($('Get FAQ Data3').all())}}\n\nReturnera JSON: {\"email_response\":\"...\"}",
+                "role": "system"
+              },
+              {
+              "content": "=Frågor: {{JSON.stringify($('🤖 AI Orchestrator - Extract Core Data1').first().json.extracted_questions)}}"
+              }
+            ]
+          },
+          "options": {
+            "maxTokens": 600,
+          "temperature": 0.7,
+          "responseFormat": "json_object"
+          }
+        },
+      "name": "🤖 AI Agent - FAQ Response1",
+        "type": "@n8n/n8n-nodes-langchain.openAi",
+        "typeVersion": 1,
+      "position": [
+        4192,
+        4160
+      ],
+      "id": "fc3336c7-671f-4f6f-982d-59e11c5e1670",
+        "credentials": {
+        "openAiApi": {
+          "id": "erTJVf7Uoi3QApUy",
+          "name": "OpenAi account 2"
+        }
+        }
+      },
+      {
+        "parameters": {
+          "sendTo": "={{$json.to}}",
+          "subject": "={{$json.subject}}",
+        "message": "={{$json.html}}",
+        "options": {}
+        },
+      "name": "✉️ Send Email Response1",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2,
+      "position": [
+        4544,
+        4256
+      ],
+      "id": "8aac5008-e804-4740-b24e-c4554a86197c",
+      "webhookId": "94d84f33-ff23-4f27-af42-f41b7456c96b",
+        "credentials": {
+        "gmailOAuth2": {
+          "id": "PWIJKaD2UKoZkbUg",
+          "name": "Gmail account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "includeSpamTrash": false,
+          "labelIds": [
+            "INBOX"
+          ]
+        }
+      },
+      "name": "Gmail Trigger - New Emails3",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [
+        1696,
+        3968
+      ],
+      "id": "b9929e8a-7166-4864-b28f-75d2c2518c02",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30lZheVCEHLNKsYy",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const gmailData = $input.first().json;\nconst emailMatch = gmailData.From.match(/<(.+?)>/) || gmailData.From.match(/([^\\s@]+@[^\\s@]+\\.[^\\s@]+)/);\nreturn {\n  thread_id: gmailData.threadId,\n  message_id: gmailData.id,\n  from: gmailData.From,\n  to: gmailData.To,\n  subject: gmailData.Subject,\n  body: gmailData.snippet || '',\n  email_address: emailMatch ? emailMatch[1] : gmailData.From.trim()\n};"
+      },
+      "name": "Extract Email Data3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        3968
+      ],
+      "id": "891df7ab-a560-4f87-9675-77c71e59ff38"
+    },
+    {
+      "parameters": {
+        "jsCode": "const history = $input.first().json;\nlet context = '';\nif (history && history.length > 0) {\n  const customer = history[0];\n  context = `\\n📊 KUNDHISTORIK:\\n- Kund sedan: ${new Date(customer.created_at).toLocaleDateString('sv-SE')}`;\n  if (customer.bookings) {\n    context += `\\n📅 Senaste bokningar:\\n${customer.bookings.slice(0,3).map(b => `  - ${b.booking_number} (${b.status})`).join('\\n')}`;\n  }\n}\nreturn {\n  ...$('Extract Email Data3').first().json,\n  customer_context: context || '\\n📊 KUNDHISTORIK: Ny kund'\n};"
+      },
+      "name": "📝 Format Customer Context3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2368,
+        3968
+      ],
+      "id": "de5af62b-4f95-4310-b43b-499dc348bbd5"
+    },
+    {
+      "parameters": {
+        "documentId": "14Cyxg-9OomP9FDhe-JsIVqaRDV3jWXLKoK-894ujga8",
+        "sheetName": {
+          "__rl": true,
+          "value": 2014925895,
+          "mode": "list",
+          "cachedResultName": "PriceList_template",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14Cyxg-9OomP9FDhe-JsIVqaRDV3jWXLKoK-894ujga8/edit#gid=2014925895"
+        },
+        "options": {}
+      },
+      "name": "Get Price List3",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2368,
+        4160
+      ],
+      "id": "b1f40d1a-ab16-4b97-ab63-d4c517d98d6b",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rImZoR2a92JfJBoa",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": "1gX3lQ5Ns5n5-cwqT4fAuU3Spcx86UtUPcUeWPNj2tAQ",
+        "sheetName": {
+          "__rl": true,
+          "value": 1663703534,
+          "mode": "list",
+          "cachedResultName": "FAQ_template",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gX3lQ5Ns5n5-cwqT4fAuU3Spcx86UtUPcUeWPNj2tAQ/edit#gid=1663703534"
+        },
+        "options": {}
+      },
+      "name": "Get FAQ Data3",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        2368,
+        4352
+      ],
+      "id": "6a5fae5d-05ae-4fa2-989e-40b56fef2ebf",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rImZoR2a92JfJBoa",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://njiagzdssxoxycxraubf.supabase.co/rest/v1/customers?email=eq.{{ $json.email_address }}&select=*",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "fefe19a4-075c-440a-9983-453ae81fe61d",
+      "name": "🔍 Fetch Customer History3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2160,
+        3968
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "Jn3pqBF4p98BZlo7",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Prepare Product Query": {
+      "main": [
+        [
+          {
+            "node": "🔍 Validate Products with Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 AI Orchestrator - Extract Core Data1": {
+      "main": [
+        [
+          {
+            "node": "Prepare Product Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Validate Products with Supabase1": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Handle Product Validation1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Handle Product Validation1": {
+      "main": [
+        [
+          {
+            "node": "Router - Product Validation1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router - Product Validation1": {
+      "main": [
+        [
+          {
+            "node": "🤖 AI Agent - Classify Request1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "📧 Format Product Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📧 Format Product Response1": {
+      "main": [
+        [
+          {
+            "node": "✉️ Send Email Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 AI Agent - Classify Request1": {
+      "main": [
+        [
+          {
+            "node": "Router - Request Type1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router - Request Type1": {
+      "main": [
+        [
+          {
+            "node": "🤖 AI Agent - Generate Quote1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🤖 AI Agent - FAQ Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 AI Agent - Generate Quote1": {
+      "main": [
+        [
+          {
+            "node": "💾 Save Booking to Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 AI Agent - FAQ Response1": {
+      "main": [
+        [
+          {
+            "node": "✉️ Send Email Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger - New Emails3": {
+        "main": [
+        [
+          {
+            "node": "Extract Email Data3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Email Data3": {
+      "main": [
+        [
+          {
+            "node": "🔍 Fetch Customer History3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📝 Format Customer Context3": {
+        "main": [
+        [
+          {
+            "node": "🤖 AI Orchestrator - Extract Core Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Price List3": {
+        "main": [
+        [
+          {
+            "node": "🤖 AI Orchestrator - Extract Core Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get FAQ Data3": {
+      "main": [
+        [
+          {
+            "node": "🤖 AI Orchestrator - Extract Core Data1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Fetch Customer History3": {
+      "main": [
+        [
+          {
+            "node": "📝 Format Customer Context3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4a88ff8272839a3037c3a37b8392227d54ce1cd60ae5d0250b6140753119fda2"
+    }
+  }

@@ -1,0 +1,150 @@
+{
+  "name": "EventGaraget - Signature Completion Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "signature-completed",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger - Signature Completed",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "signature-completed"
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = $input.first().json.body;\n\nreturn {\n  booking_number: payload.booking_number,\n  booking_id: payload.booking_id,\n  customer_email: payload.customer_email,\n  customer_name: payload.customer_name,\n  signature_data: payload.signature_data,\n  document_url: payload.document_url,\n  signed_at: payload.signed_at || new Date().toISOString()\n};"
+      },
+      "id": "parse-webhook-data",
+      "name": "Parse Webhook Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/bookings?booking_number=eq.{{$json.booking_number}}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"confirmed\",\n  \"contract_signed\": true,\n  \"contract_signed_at\": \"{{$json.signed_at}}\"\n}",
+        "options": {}
+      },
+      "id": "update-booking-status",
+      "name": "Update Booking Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [650, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "3",
+          "name": "Supabase EventGaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/bookings?booking_number=eq.{{$('Parse Webhook Data').item.json.booking_number}}&select=*,customer:customers(*)",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "get-booking-details",
+      "name": "Get Booking Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/booking_products?booking_id=eq.{{$('Get Booking Details').item.json[0].id}}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "get-booking-products",
+      "name": "Get Booking Products",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const booking = $('Get Booking Details').item.json[0];\nconst products = $('Get Booking Products').all();\nconst signatureData = $('Parse Webhook Data').item.json;\n\n// Build product table for email\nconst productRows = products.map(p => \n  `<tr>\n    <td style=\"padding: 8px; border: 1px solid #ddd;\">${p.product_name}</td>\n    <td style=\"padding: 8px; border: 1px solid #ddd; text-align: center;\">${p.quantity}</td>\n    <td style=\"padding: 8px; border: 1px solid #ddd; text-align: right;\">${p.price_per_unit} kr</td>\n    <td style=\"padding: 8px; border: 1px solid #ddd; text-align: right;\">${p.total_price} kr</td>\n  </tr>`\n).join('');\n\nconst customerEmailHtml = `\n<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; }\n    .header { background: #27ae60; color: white; padding: 30px; text-align: center; }\n    .content { padding: 30px; background: #f9f9f9; }\n    .success-icon { font-size: 48px; margin-bottom: 10px; }\n    table { width: 100%; border-collapse: collapse; margin: 20px 0; background: white; }\n    th { background: #34495e; color: white; padding: 12px; text-align: left; }\n    .info-box { background: #e8f5e9; padding: 20px; border-radius: 5px; margin: 20px 0; }\n    .footer { padding: 20px; text-align: center; color: #7f8c8d; font-size: 0.9em; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <div class=\"success-icon\">✅</div>\n      <h1>Bokning Bekräftad!</h1>\n      <p>Tack för att du valde EventGaraget</p>\n    </div>\n    \n    <div class=\"content\">\n      <p>Hej ${booking.customer.name}!</p>\n      \n      <p>Ditt avtal är nu signerat och din bokning är bekräftad! 🎉</p>\n      \n      <div class=\"info-box\">\n        <h3 style=\"margin-top: 0;\">📋 Bokningsdetaljer</h3>\n        <p><strong>Bokningsnummer:</strong> ${booking.booking_number}</p>\n        <p><strong>Leverans:</strong> ${new Date(booking.delivery_date).toLocaleDateString('sv-SE')}</p>\n        ${booking.pickup_date ? `<p><strong>Upphämtning:</strong> ${new Date(booking.pickup_date).toLocaleDateString('sv-SE')}</p>` : ''}\n        <p><strong>Adress:</strong> ${booking.delivery_address}</p>\n        <p><strong>Signerat:</strong> ${new Date(signatureData.signed_at).toLocaleString('sv-SE')}</p>\n      </div>\n      \n      <h3>Hyresartiklar</h3>\n      <table>\n        <thead>\n          <tr>\n            <th>Produkt</th>\n            <th style=\"text-align: center;\">Antal</th>\n            <th style=\"text-align: right;\">Pris/st</th>\n            <th style=\"text-align: right;\">Totalt</th>\n          </tr>\n        </thead>\n        <tbody>\n          ${productRows}\n          <tr style=\"background: #ecf0f1; font-weight: bold;\">\n            <td colspan=\"3\" style=\"padding: 12px; text-align: right; font-size: 1.1em;\">TOTALT:</td>\n            <td style=\"padding: 12px; text-align: right; font-size: 1.1em;\">${booking.total_amount} kr</td>\n          </tr>\n          <tr>\n            <td colspan=\"3\" style=\"padding: 8px; text-align: right;\">Handpenning (50%):</td>\n            <td style=\"padding: 8px; text-align: right; font-weight: bold;\">${booking.deposit_amount || booking.total_amount * 0.5} kr</td>\n          </tr>\n        </tbody>\n      </table>\n      \n      <h3>💰 Betalning</h3>\n      <div class=\"info-box\">\n        <p><strong>Faktura för handpenningen skickas inom 24 timmar</strong> till:</p>\n        ${booking.customer.company_name ? `<p>Företag: ${booking.customer.company_name}<br>` : ''}\n        ${booking.customer.org_number ? `Org.nr: ${booking.customer.org_number}<br>` : ''}\n        ${booking.invoice_address || booking.delivery_address}</p>\n        <p style=\"margin-top: 15px;\"><strong>Restbetalning (${booking.total_amount - (booking.deposit_amount || booking.total_amount * 0.5)} kr)</strong> betalas vid leverans via Swish eller faktura.</p>\n      </div>\n      \n      <h3>🚚 Nästa Steg</h3>\n      <ul>\n        <li>✅ Vi skickar faktura för handpenningen inom 24h</li>\n        <li>📞 1-2 dagar före leverans ringer vi för att bekräfta tid och detaljer</li>\n        <li>🚛 Vi levererar och monterar allt på plats enligt överenskommelse</li>\n        <li>💳 Restbetalning vid leverans</li>\n        <li>📦 Vi hämtar upp efter ert event</li>\n      </ul>\n      \n      <p style=\"margin-top: 30px;\">Det signerade avtalet finns bifogat som PDF.</p>\n      \n      <p><strong>Har du frågor?</strong><br>\nRing oss på 08-123 456 78 eller svara på detta mail!</p>\n      \n      <p>Vi ser fram emot att göra ditt event till en succé!</p>\n      \n      <p>Med vänliga hälsningar,<br>\n      <strong>EventGaraget Team</strong></p>\n    </div>\n    \n    <div class=\"footer\">\n      <p><strong>EventGaraget</strong></p>\n      <p>📧 info@eventgaraget.se | 📞 08-123 456 78</p>\n      <p>www.eventgaraget.se</p>\n    </div>\n  </div>\n</body>\n</html>\n`;\n\nconst internalEmailHtml = `\n<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 700px; margin: 0 auto; }\n    .header { background: #27ae60; color: white; padding: 20px; text-align: center; }\n    .content { padding: 20px; background: #f9f9f9; }\n    table { width: 100%; border-collapse: collapse; margin: 15px 0; background: white; }\n    th { background: #34495e; color: white; padding: 10px; text-align: left; }\n    td { padding: 8px; border: 1px solid #ddd; }\n    .action-box { background: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 15px 0; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>🎉 NY SIGNERAD BOKNING!</h1>\n    </div>\n    \n    <div class=\"content\">\n      <h2>Bokningsnummer: ${booking.booking_number}</h2>\n      \n      <div class=\"action-box\">\n        <strong>⚡ ACTION REQUIRED:</strong>\n        <ul style=\"margin: 10px 0;\">\n          <li>Skicka faktura för handpenning (${booking.deposit_amount || booking.total_amount * 0.5} kr)</li>\n          <li>Boka in leverans i kalendern</li>\n          <li>Kontrollera lagersaldo för produkterna</li>\n        </ul>\n      </div>\n      \n      <h3>👤 Kundinfo</h3>\n      <table>\n        <tr><td><strong>Namn:</strong></td><td>${booking.customer.name}</td></tr>\n        <tr><td><strong>Email:</strong></td><td>${booking.customer.email}</td></tr>\n        <tr><td><strong>Telefon:</strong></td><td>${booking.customer.phone || 'Saknas'}</td></tr>\n        ${booking.customer.company_name ? `<tr><td><strong>Företag:</strong></td><td>${booking.customer.company_name}</td></tr>` : ''}\n        ${booking.customer.org_number ? `<tr><td><strong>Org.nr:</strong></td><td>${booking.customer.org_number}</td></tr>` : ''}\n      </table>\n      \n      <h3>📅 Bokningsinfo</h3>\n      <table>\n        <tr><td><strong>Leveransdatum:</strong></td><td>${new Date(booking.delivery_date).toLocaleDateString('sv-SE')}</td></tr>\n        ${booking.pickup_date ? `<tr><td><strong>Upphämtning:</strong></td><td>${new Date(booking.pickup_date).toLocaleDateString('sv-SE')}</td></tr>` : ''}\n        <tr><td><strong>Leveransadress:</strong></td><td>${booking.delivery_address}</td></tr>\n        ${booking.invoice_address && booking.invoice_address !== booking.delivery_address ? `<tr><td><strong>Fakturaadress:</strong></td><td>${booking.invoice_address}</td></tr>` : ''}\n        <tr><td><strong>Signerat:</strong></td><td>${new Date(signatureData.signed_at).toLocaleString('sv-SE')}</td></tr>\n      </table>\n      \n      <h3>📦 Produkter</h3>\n      <table>\n        <thead>\n          <tr>\n            <th>Produkt</th>\n            <th style=\"text-align: center;\">Antal</th>\n            <th style=\"text-align: right;\">Pris/st</th>\n            <th style=\"text-align: right;\">Totalt</th>\n          </tr>\n        </thead>\n        <tbody>\n          ${productRows}\n        </tbody>\n      </table>\n      \n      <h3>💰 Ekonomi</h3>\n      <table>\n        <tr><td><strong>Totalbelopp:</strong></td><td style=\"text-align: right; font-size: 1.2em; font-weight: bold;\">${booking.total_amount} kr</td></tr>\n        <tr style=\"background: #fff3cd;\"><td><strong>Handpenning (skicka faktura!):</strong></td><td style=\"text-align: right; font-weight: bold;\">${booking.deposit_amount || booking.total_amount * 0.5} kr</td></tr>\n        <tr><td><strong>Restbetalning (vid leverans):</strong></td><td style=\"text-align: right;\">${booking.total_amount - (booking.deposit_amount || booking.total_amount * 0.5)} kr</td></tr>\n      </table>\n      \n      ${booking.notes ? `<p><strong>Anteckningar:</strong> ${booking.notes}</p>` : ''}\n      \n      <p style=\"margin-top: 30px;\">Det signerade avtalet finns bifogat.</p>\n    </div>\n  </div>\n</body>\n</html>\n`;\n\nreturn [\n  {\n    type: 'customer',\n    to: booking.customer.email,\n    subject: `✅ Bokning Bekräftad - ${booking.booking_number}`,\n    html: customerEmailHtml,\n    booking_number: booking.booking_number,\n    document_url: signatureData.document_url\n  },\n  {\n    type: 'internal',\n    to: process.env.COMPANY_EMAIL || 'bokningar@eventgaraget.se',\n    subject: `🎉 NY SIGNERAD BOKNING - ${booking.booking_number} - ${booking.customer.name}`,\n    html: internalEmailHtml,\n    booking_number: booking.booking_number,\n    document_url: signatureData.document_url\n  }\n];"
+      },
+      "id": "format-emails",
+      "name": "Format Confirmation Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$json.to}}",
+        "subject": "={{$json.subject}}",
+        "emailType": "html",
+        "message": "={{$json.html}}",
+        "options": {
+          "attachments": "={{$json.document_url ? 'attachment:' + $json.document_url : ''}}"
+        }
+      },
+      "id": "send-emails",
+      "name": "Send Confirmation Emails",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [1450, 300],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1",
+          "name": "Gmail EventGaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"success\": true, \"message\": \"Confirmation emails sent\", \"booking_number\": \"{{$('Parse Webhook Data').item.json.booking_number}}\"}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1650, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger - Signature Completed": {
+      "main": [[{"node": "Parse Webhook Data", "type": "main", "index": 0}]]
+    },
+    "Parse Webhook Data": {
+      "main": [[{"node": "Update Booking Status", "type": "main", "index": 0}]]
+    },
+    "Update Booking Status": {
+      "main": [[{"node": "Get Booking Details", "type": "main", "index": 0}]]
+    },
+    "Get Booking Details": {
+      "main": [[{"node": "Get Booking Products", "type": "main", "index": 0}]]
+    },
+    "Get Booking Products": {
+      "main": [[{"node": "Format Confirmation Emails", "type": "main", "index": 0}]]
+    },
+    "Format Confirmation Emails": {
+      "main": [[{"node": "Send Confirmation Emails", "type": "main", "index": 0}]]
+    },
+    "Send Confirmation Emails": {
+      "main": [[{"node": "Webhook Response", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
+

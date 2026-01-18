@@ -1,0 +1,246 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "send-email",
+        "options": {}
+      },
+      "id": "webhook-send-email",
+      "name": "Webhook: Send Email",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -1456,
+        -112
+      ],
+      "webhookId": "send-email-webhook",
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "outgoing_emails",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.body.record.id }}"
+            }
+          ]
+        }
+      },
+      "id": "get-email-record",
+      "name": "Get Email Record",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1280,
+        -112
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "customers",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.customer_id }}"
+            }
+          ]
+        }
+      },
+      "id": "get-customer-info",
+      "name": "Get Customer Info",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -928,
+        -208
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const emailRecord = $('Get Email Record').first().json;\nconst customer = $('Get Customer Info').first().json;\n\n// If HTML body exists, use it; otherwise create simple HTML from plain text\nconst htmlBody = emailRecord.body_html || `\n<div style=\"font-family: Arial, sans-serif; color: #333;\">\n  <p>${(emailRecord.body_plain || '').replace(/\\n/g, '<br>')}</p>\n  <hr style=\"border: none; border-top: 1px solid #ccc; margin: 20px 0;\">\n  <p style=\"font-size: 12px; color: #999;\">\n    Skickat från EventGaraget CRM<br>\n    ${new Date().toLocaleDateString('sv-SE')} ${new Date().toLocaleTimeString('sv-SE')}\n  </p>\n</div>\n`;\n\nconsole.log('📧 Email ready to send');\nconsole.log('   To:', emailRecord.recipient_email);\nconsole.log('   Subject:', emailRecord.subject);\nconsole.log('   Type:', emailRecord.email_type);\n\nreturn [{\n  json: {\n    email_id: emailRecord.id,\n    to: emailRecord.recipient_email,\n    subject: emailRecord.subject,\n    html: htmlBody,\n    text: emailRecord.body_plain,\n    customer_name: customer?.name || 'Customer',\n    email_type: emailRecord.email_type\n  }\n}];"
+      },
+      "id": "prepare-email-data",
+      "name": "Prepare Email Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "subject": "={{ $json.subject }}",
+        "includeHtml": true,
+        "htmlMessage": "={{ $json.html }}",
+        "message": "={{ $json.text }}",
+        "toList": [
+          "={{ $json.to }}"
+        ],
+        "additionalFields": {}
+      },
+      "id": "send-email-via-gmail",
+      "name": "Send Email via Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        176,
+        -80
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30lZheVCEHLNKsYy",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "outgoing_emails",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.email_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "sent"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "update-email-status",
+      "name": "Update Email Status",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        368,
+        -80
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const emailData = $('Prepare Email Data').first().json;\n\nconsole.log('✅ Email sent successfully!');\nconsole.log('📧 Recipient:', emailData.to);\nconsole.log('📌 Type:', emailData.email_type);\nconsole.log('⏰ Sent at:', new Date().toISOString());\n\nreturn [{\n  json: {\n    success: true,\n    email_id: emailData.email_id,\n    sent_to: emailData.to,\n    customer_name: emailData.customer_name,\n    email_type: emailData.email_type,\n    timestamp: new Date().toISOString(),\n    message: '✅ E-post skickad'\n  }\n}];"
+      },
+      "id": "success-notification",
+      "name": "Success Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        -80
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: Send Email": {
+      "main": [
+        [
+          {
+            "node": "Get Email Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Email Record": {
+      "main": [
+        [
+          {
+            "node": "Get Customer Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Customer Info": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Email Data": {
+      "main": [
+        [
+          {
+            "node": "Send Email via Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email via Gmail": {
+      "main": [
+        [
+          {
+            "node": "Update Email Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Email Status": {
+      "main": [
+        [
+          {
+            "node": "Success Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4a88ff8272839a3037c3a37b8392227d54ce1cd60ae5d0250b6140753119fda2"
+  }
+}
+

@@ -1,0 +1,306 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "booking-confirmation",
+        "options": {}
+      },
+      "id": "webhook-booking-confirm",
+      "name": "Webhook: Booking Confirmation",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -1456,
+        -112
+      ],
+      "webhookId": "booking-confirmation-webhook",
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "bookings",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.body.record.id }}"
+            }
+          ]
+        }
+      },
+      "id": "get-booking-details",
+      "name": "Get Booking Details",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1280,
+        -112
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "customers",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.customer_id }}"
+            }
+          ]
+        }
+      },
+      "id": "get-customer-details",
+      "name": "Get Customer Details",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -928,
+        -208
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "products"
+      },
+      "id": "get-all-products",
+      "name": "Get All Products",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        96
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const booking = $('Get Booking Details').first().json;\nconst customer = $('Get Customer Details').first().json;\nconst products = $('Get All Products').all().map(p => p.json);\n\n// Calculate rental days\nconst startDate = new Date(booking.event_date);\nconst endDate = new Date(booking.event_end_date || booking.event_date);\nconst rentalDays = Math.max(1, Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1);\n\n// Parse products_requested and get full info\nlet productsWithDetails = [];\ntry {\n  const requestedProducts = JSON.parse(booking.products_requested || '[]');\n  productsWithDetails = requestedProducts.map(rp => {\n    const fullProduct = products.find(p => p.name === rp.name);\n    const quantity = rp.quantity || 1;\n    const pricePerDay = fullProduct ? fullProduct.base_price_per_day : (rp.price || 0);\n    const subtotal = pricePerDay * rentalDays * quantity;\n    \n    return {\n      ...rp,\n      pricePerDay,\n      rentalDays,\n      quantity,\n      subtotal\n    };\n  });\n} catch (e) {\n  console.log('⚠️ Error parsing products:', e.message);\n}\n\nconsole.log('📦 Booking Confirmation Data Ready');\nconsole.log('  Booking:', booking.booking_number);\nconsole.log('  Customer:', customer?.name);\nconsole.log('  Products:', productsWithDetails.length);\nconsole.log('  Total Amount:', booking.total_amount);\n\nreturn [{\n  json: {\n    booking,\n    customer,\n    products: productsWithDetails,\n    rentalDays,\n    total_amount: booking.total_amount,\n    tax_amount: booking.tax_amount || 0,\n    shipping_cost: booking.shipping_cost || 0\n  }\n}];"
+      },
+      "id": "prepare-booking-data",
+      "name": "Prepare Booking Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const booking = $('Prepare Booking Data').first().json.booking;\nconst customer = $('Prepare Booking Data').first().json.customer;\nconst products = $('Prepare Booking Data').first().json.products;\nconst total = $('Prepare Booking Data').first().json.total_amount;\nconst tax = $('Prepare Booking Data').first().json.tax_amount;\nconst shipping = $('Prepare Booking Data').first().json.shipping_cost;\n\n// Build products HTML table\nconst productsHtml = products.map(p => `\n  <tr>\n    <td style=\"padding: 12px; border-bottom: 1px solid #eee;\">${p.name || 'Produkt'}</td>\n    <td style=\"padding: 12px; border-bottom: 1px solid #eee; text-align: right;\">${p.rentalDays || 1} dagar</td>\n    <td style=\"padding: 12px; border-bottom: 1px solid #eee; text-align: right;\">${p.quantity || 1}</td>\n    <td style=\"padding: 12px; border-bottom: 1px solid #eee; text-align: right;\">${(p.subtotal || 0).toFixed(2)} SEK</td>\n  </tr>\n`).join('');\n\nconst htmlContent = `\n<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <style>\n    body { font-family: Arial, sans-serif; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; }\n    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }\n    .content { background: white; padding: 30px; border-radius: 0 0 8px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }\n    .section { margin-bottom: 30px; }\n    .section-title { font-size: 16px; color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 10px; margin-bottom: 15px; }\n    .info-row { margin: 8px 0; }\n    .info-row strong { display: inline-block; width: 150px; }\n    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }\n    table th { background: #f5f5f5; padding: 12px; text-align: left; border-bottom: 2px solid #ddd; font-weight: bold; }\n    .summary { background: #f0f4ff; padding: 20px; border-radius: 8px; }\n    .summary-row { display: flex; justify-content: space-between; padding: 8px 0; }\n    .summary-label { font-weight: bold; }\n    .total-row { border-top: 2px solid #667eea; padding-top: 12px; margin-top: 12px; font-size: 18px; color: #667eea; }\n    .footer { border-top: 1px solid #eee; padding-top: 20px; font-size: 12px; color: #999; text-align: center; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1 style=\"margin: 0; font-size: 28px;\">✅ BOKNINGSBEKRÄFTELSE</h1>\n      <p style=\"margin: 10px 0 0 0; font-size: 14px; opacity: 0.9;\">Din bokning är nu bekräftad!</p>\n    </div>\n    \n    <div class=\"content\">\n      <div class=\"section\">\n        <div class=\"section-title\">📌 BOKNINGSINFORMATION</div>\n        <div class=\"info-row\"><strong>Bokningsnummer:</strong> ${booking.booking_number}</div>\n        <div class=\"info-row\"><strong>Datum:</strong> ${new Date(booking.event_date).toLocaleDateString('sv-SE')} - ${booking.event_end_date ? new Date(booking.event_end_date).toLocaleDateString('sv-SE') : new Date(booking.event_date).toLocaleDateString('sv-SE')}</div>\n        <div class=\"info-row\"><strong>Plats:</strong> ${booking.location || 'N/A'}</div>\n      </div>\n      \n      <div class=\"section\">\n        <div class=\"section-title\">👤 KUNDUPPGIFTER</div>\n        <div class=\"info-row\"><strong>Namn:</strong> ${customer?.name || 'N/A'}</div>\n        <div class=\"info-row\"><strong>Email:</strong> ${customer?.email || 'N/A'}</div>\n        <div class=\"info-row\"><strong>Telefon:</strong> ${customer?.phone || 'N/A'}</div>\n        ${customer?.company_name ? `<div class=\"info-row\"><strong>Företag:</strong> ${customer.company_name}</div>` : ''}\n      </div>\n      \n      <div class=\"section\">\n        <div class=\"section-title\">📦 PRODUKTER & TJÄNSTER</div>\n        <table>\n          <thead>\n            <tr>\n              <th>Produkt</th>\n              <th style=\"text-align: right;\">Dagar</th>\n              <th style=\"text-align: right;\">Antal</th>\n              <th style=\"text-align: right;\">Summa</th>\n            </tr>\n          </thead>\n          <tbody>\n            ${productsHtml}\n          </tbody>\n        </table>\n      </div>\n      \n      <div class=\"section\">\n        <div class=\"section-title\">💰 KOSTNADSSUMMERING</div>\n        <div class=\"summary\">\n          <div class=\"summary-row\">\n            <span class=\"summary-label\">Produkter & Tjänster:</span>\n            <span>${total?.toFixed(2) || '0.00'} SEK</span>\n          </div>\n          ${shipping && shipping > 0 ? `\n          <div class=\"summary-row\">\n            <span class=\"summary-label\">Fraktkostnad:</span>\n            <span>${shipping.toFixed(2)} SEK</span>\n          </div>\n          ` : ''}\n          <div class=\"summary-row\">\n            <span class=\"summary-label\">Moms (25%):</span>\n            <span>${tax?.toFixed(2) || '0.00'} SEK</span>\n          </div>\n          <div class=\"summary-row total-row\">\n            <span class=\"summary-label\">TOTALT ATT BETALA:</span>\n            <span>${((total || 0) + (tax || 0) + (shipping || 0)).toFixed(2)} SEK</span>\n          </div>\n        </div>\n      </div>\n      \n      <div class=\"section\" style=\"background: #e8f5e9; padding: 20px; border-radius: 8px;\">\n        <strong style=\"color: #2e7d32;\">✅ Nästa steg:</strong>\n        <p style=\"margin: 10px 0 0 0; color: #333;\">Vi kommer att kontakta dig snart med leveransinformation och eventuella frågor. Har du några frågor kan du svara på detta mail.</p>\n      </div>\n      \n      <div class=\"footer\">\n        <p style=\"margin: 5px 0;\"><strong>EventGaraget AB</strong></p>\n        <p style=\"margin: 5px 0;\">📧 booking@eventgaraget.se</p>\n        <p style=\"margin: 5px 0;\">📞 +46 70 XXX XX XX</p>\n        <p style=\"margin: 5px 0;\">🌐 www.eventgaraget.se</p>\n      </div>\n    </div>\n  </div>\n</body>\n</html>\n`;\n\nreturn [{\n  json: {\n    to: customer?.email || 'unknown@example.com',\n    subject: `✅ Bokningsbekräftelse - ${booking.booking_number}`,\n    html: htmlContent,\n    booking_id: booking?.id,\n    customer_id: customer?.id,\n    booking_number: booking?.booking_number\n  }\n}];"
+      },
+      "id": "build-confirmation-email",
+      "name": "Build Confirmation Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "subject": "={{ $json.subject }}",
+        "includeHtml": true,
+        "htmlMessage": "={{ $json.html }}",
+        "message": "Se HTML-versionen av mailet",
+        "toList": [
+          "={{ $json.to }}"
+        ],
+        "additionalFields": {}
+      },
+      "id": "send-confirmation-email",
+      "name": "Send Confirmation Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [
+        176,
+        -80
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30lZheVCEHLNKsYy",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "booking_confirmations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "booking_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.booking_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "email_sent",
+              "fieldValue": true
+            },
+            {
+              "fieldId": "email_sent_at",
+              "fieldValue": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "id": "update-confirmation-status",
+      "name": "Update Confirmation Status",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        368,
+        -80
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const emailSent = $('Send Confirmation Email').first().json;\nconst bookingData = $('Prepare Booking Data').first().json;\n\nconsole.log('✅ Booking confirmation workflow completed!');\nconsole.log('📧 Email sent to:', emailSent?.to || 'unknown');\nconsole.log('📌 Booking:', bookingData?.booking?.booking_number);\nconsole.log('⏰ Timestamp:', new Date().toISOString());\n\nreturn [{\n  json: {\n    success: true,\n    booking_id: bookingData?.booking?.id,\n    booking_number: bookingData?.booking?.booking_number,\n    email_sent_to: emailSent?.to,\n    timestamp: new Date().toISOString(),\n    message: '✅ Bokningsbekräftelse skickad och sparad'\n  }\n}];"
+      },
+      "id": "success-log",
+      "name": "Success Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        -80
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: Booking Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Get Booking Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Booking Details": {
+      "main": [
+        [
+          {
+            "node": "Get Customer Details",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get All Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Customer Details": {
+      "main": [
+        [
+          {
+            "node": "Prepare Booking Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Products": {
+      "main": [
+        [
+          {
+            "node": "Prepare Booking Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Booking Data": {
+      "main": [
+        [
+          {
+            "node": "Build Confirmation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Confirmation Email": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Confirmation Email": {
+      "main": [
+        [
+          {
+            "node": "Update Confirmation Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Confirmation Status": {
+      "main": [
+        [
+          {
+            "node": "Success Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4a88ff8272839a3037c3a37b8392227d54ce1cd60ae5d0250b6140753119fda2"
+  }
+}
+

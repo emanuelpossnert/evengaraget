@@ -1,0 +1,57 @@
+productName,pricePerDay,unit,category,minOrder
+Partytält 3x3m,1500,st,Tält,1
+Partytält 4x4m,2000,st,Tält,1
+Partytält 4x8m,2500,st,Tält,1
+Partytält 6x6m,3500,st,Tält,1
+Partytält 6x12m,4500,st,Tält,1
+Partytält 8x12m,6500,st,Tält,1
+Tältsidoväggar (per sida),150,st,Tillbehör,1
+Tältdörr med fönster,200,st,Tillbehör,1
+Ståbord runt Ø80cm,150,st,Möbler,5
+Ståbord högt Ø60cm,120,st,Möbler,5
+Festbord 180x80cm,180,st,Möbler,2
+Bänkbord 220x80cm,200,st,Möbler,2
+Stol vit plast,35,st,Möbler,10
+Stol svart chiavari,85,st,Möbler,10
+Stol vit folding,45,st,Möbler,10
+Barpall svart,75,st,Möbler,4
+Festbelysning grundpaket,400,paket,Belysning,1
+Ljusslinga varmvit 10m,150,st,Belysning,1
+Spotlight LED 50W,200,st,Belysning,1
+Partybelysning RGB,350,st,Belysning,1
+Värmefläkt 3kW,450,st,Värme,1
+Värmefläkt 5kW,600,st,Värme,1
+Infraröd värmare 2kW,550,st,Värme,1
+Gasolvärmare utomhus,500,st,Värme,1
+Festduk vit (för festbord),50,st,Textil,5
+Festduk svart (för festbord),50,st,Textil,5
+Överdrag vit (för ståbord),40,st,Textil,5
+Överdrag färgad (för ståbord),60,st,Textil,5
+Servett tyg vit,15,st,Textil,20
+Matta/Duktyg röda mattan 1x10m,400,st,Golv,1
+Trägolv för tält 4x8m,1200,st,Golv,1
+Eventdekoration grundpaket,800,paket,Dekoration,1
+Blomsterarrangemang bord,250,st,Dekoration,3
+Ballongbåge 3m,600,st,Dekoration,1
+Ljudanläggning liten,800,st,AV-utrustning,1
+Ljudanläggning stor,1500,st,AV-utrustning,1
+Mikrofon trådlös,200,st,AV-utrustning,1
+Projektor + duk,900,st,AV-utrustning,1
+Generator 3kW,650,st,El,1
+Generator 5kW,950,st,El,1
+Elcentral 16A,200,st,El,1
+Förlängningskabel 25m,50,st,El,1
+Portabelt kök 2x2m,1200,st,Special,1
+Bardisk 2m,500,st,Special,1
+Bardisk 3m,700,st,Special,1
+Champagnekylare,150,st,Special,1
+Ölkyl 2 kranar,800,st,Special,1
+Toa-vagn (kemtoalett),1200,st,Sanitär,1
+Handvask mobil,400,st,Sanitär,1
+Montering litet tält (<20kvm),500,st,Service,1
+Montering stort tält (>20kvm),1000,st,Service,1
+Demontering och bortforsling,300,st,Service,1
+Transport Stockholms län,400,tur,Service,1
+Transport övriga Sverige,pris enligt offert,tur,Service,1
+Eventplanering konsultation,0,tim,Service,1
+

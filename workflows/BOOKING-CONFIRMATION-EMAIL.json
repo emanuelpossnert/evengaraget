@@ -1,0 +1,318 @@
+{
+  "name": "Booking Confirmation Email",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "booking-confirmation",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "name": "Webhook1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        0
+      ],
+      "webhookId": "booking-confirmation-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract booking_id from webhook payload\nconst booking_id = $json.record?.booking_id;\nconst booking_number = $json.record?.booking_number;\n\nconsole.log('📋 Extracted booking_id:', booking_id);\nconsole.log('📋 Booking number:', booking_number);\n\nreturn [{json: {booking_id, booking_number}}];"
+      },
+      "name": "Extract Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -150,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "booking_tokens",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "booking_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.booking_id }}"
+            }
+          ]
+        }
+      },
+      "name": "Get Booking Token",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        100,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "bookings",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.booking_id }}"
+            }
+          ]
+        }
+      },
+      "name": "Get Booking Details",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        350,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "customers",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.customer_id }}"
+            }
+          ]
+        }
+      },
+      "name": "Get Customer Email",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        600,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get token from previous nodes\nconst tokenData = $('Get Booking Token').all();\nconst token = tokenData[0]?.json?.token;\nconst bookingNumber = $json.booking_number;\nconst customerEmail = $input.first().json?.email;\nconst customerName = $input.first().json?.name;\nconst eventDate = $('Get Booking Details').first().json?.event_date;\nconst location = $('Get Booking Details').first().json?.location;\n\nif (!token) {\n  throw new Error('❌ Token not found!');\n}\n\n// PRODUCTION URL - ÄNDRA DENNA!\nconst BOOKING_DETAILS_URL = 'http://localhost:3000';\nconst customerLink = `${BOOKING_DETAILS_URL}/booking/${token}`;\n\nconsole.log('✅ Customer link:', customerLink);\n\nreturn [{json: {\n  customerEmail,\n  customerName,\n  bookingNumber,\n  customerLink,\n  event_date: eventDate,\n  location: location\n}}];"
+      },
+      "name": "Generate Link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        850,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const {customerName, bookingNumber, customerLink, event_date, location} = $json;\n\nconst subject = `Bokningsbekräftelse - ${bookingNumber}`;\nconst htmlBody = `\n<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: linear-gradient(to right, #dc2626, #f97316); color: white; padding: 30px; border-radius: 8px 8px 0 0; text-align: center; }\n    .header h1 { margin: 0; font-size: 28px; }\n    .content { background-color: #f9fafb; padding: 30px; }\n    .button { \n      display: inline-block; \n      background-color: #2563eb; \n      color: white; \n      padding: 14px 32px; \n      text-decoration: none; \n      border-radius: 6px; \n      margin: 20px 0;\n      font-weight: bold;\n      text-align: center;\n    }\n    .details { background-color: white; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #2563eb; }\n    .details-row { margin: 12px 0; }\n    .label { font-weight: bold; color: #666; }\n    .footer { color: #999; font-size: 12px; margin-top: 30px; text-align: center; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>✅ Din bokning är bekräftad!</h1>\n    </div>\n    \n    <div class=\"content\">\n      <p>Hej <strong>${customerName}</strong>,</p>\n      \n      <p>Grattis! Din bokning är nu bekräftad och vi är glada att kunna arrangera din event.</p>\n      \n      <div class=\"details\">\n        <div class=\"details-row\">\n          <span class=\"label\">📋 Bokningsnummer:</span> ${bookingNumber}\n        </div>\n        <div class=\"details-row\">\n          <span class=\"label\">📅 Event-datum:</span> ${new Date(event_date).toLocaleDateString('sv-SE')}\n        </div>\n        <div class=\"details-row\">\n          <span class=\"label\">📍 Plats:</span> ${location}\n        </div>\n      </div>\n      \n      <p><strong>🎨 Nästa steg:</strong></p>\n      <p>Om du har valt foilering/branding för dina produkter behöver du ladda upp dina design-filer så snart som möjligt. Klicka på knappen nedan för att gå till bokningssidan:</p>\n      \n      <center>\n        <a href=\"${customerLink}\" class=\"button\" style=\"display: inline-block;\">Visa bokningsdetaljer & ladda upp designs</a>\n      </center>\n      \n      <p style=\"margin-top: 30px;\">\n        <strong>⏰ Viktigt:</strong><br>\n        • Vi behöver alla foliering-designs senast <strong>3 dagar före eventet</strong><br>\n        • Godkänd design kommer tillbaka före leveransdatum<br>\n        • Kontakta oss om du har frågor eller behöver ändra något\n      </p>\n      \n      <p style=\"margin-top: 30px; color: #666;\">\n        Med vänlig hälsning,<br>\n        <strong>EventGaraget Team</strong><br>\n        <br>\n        Har du frågor? Svara bara på det här mailet eller ring oss på telefon.\n      </p>\n      \n      <div class=\"footer\">\n        <p>EventGaraget | Event & Party Rental</p>\n      </div>\n    </div>\n  </div>\n</body>\n</html>\n`;\n\nconsole.log('📧 Email prepared for:', customerEmail);\n\nreturn [{json: {\n  to: customerEmail,\n  subject,\n  htmlBody,\n  customer_name: customerName,\n  booking_number: bookingNumber,\n  customer_link: customerLink\n}}];"
+      },
+      "name": "Format Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.htmlBody }}",
+        "options": {}
+      },
+      "name": "Send Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1350,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "30lZheVCEHLNKsYy",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "outgoing_emails",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "recipient_email",
+              "fieldValue": "={{ $json.to }}"
+            },
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $json.subject }}"
+            },
+            {
+              "fieldId": "body_html",
+              "fieldValue": "={{ $json.htmlBody }}"
+            },
+            {
+              "fieldId": "email_type",
+              "fieldValue": "=\"booking_confirmation\""
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "=\"sent\""
+            }
+          ]
+        }
+      },
+      "name": "Log Email",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1600,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "BapfQjee2z3IICBv",
+          "name": "Eventgaraget"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1850,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Extract Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Data": {
+      "main": [
+        [
+          {
+            "node": "Get Booking Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Booking Token": {
+      "main": [
+        [
+          {
+            "node": "Get Booking Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Booking Details": {
+      "main": [
+        [
+          {
+            "node": "Get Customer Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Customer Email": {
+      "main": [
+        [
+          {
+            "node": "Generate Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Link": {
+      "main": [
+        [
+          {
+            "node": "Format Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Email": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Gmail": {
+      "main": [
+        [
+          {
+            "node": "Log Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Email": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}
