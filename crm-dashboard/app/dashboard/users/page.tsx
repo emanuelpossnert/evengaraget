@@ -24,10 +24,14 @@ export default function UsersPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    email: string;
+    full_name: string;
+    role: "admin" | "manager" | "warehouse" | "printer";
+  }>({
     email: "",
     full_name: "",
-    role: "manager" as const,
+    role: "manager",
   });
   const [newUserPassword, setNewUserPassword] = useState<{ email: string; password: string } | null>(null);
   const [visiblePassword, setVisiblePassword] = useState<string | null>(null);
