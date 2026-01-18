@@ -123,7 +123,7 @@ export default function UsersPage() {
         setMessage({ type: "success", text: "Användare skapad! Se lösenordet nedan." });
       }
 
-      setFormData({ email: "", full_name: "", role: "support" });
+      setFormData({ email: "", full_name: "", role: "manager" });
       setEditingId(null);
       setShowForm(false);
       fetchUsers();
@@ -282,7 +282,7 @@ export default function UsersPage() {
             <button
               onClick={() => {
                 setNewUserPassword(null);
-                setFormData({ email: "", full_name: "", role: "support" });
+                setFormData({ email: "", full_name: "", role: "manager" });
                 setShowForm(false);
               }}
               className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold"
@@ -303,7 +303,7 @@ export default function UsersPage() {
           onClick={() => {
             setShowForm(true);
             setEditingId(null);
-            setFormData({ email: "", full_name: "", role: "support" });
+            setFormData({ email: "", full_name: "", role: "manager" });
           }}
           className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-orange-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all font-semibold"
         >
@@ -363,7 +363,7 @@ export default function UsersPage() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        role: e.target.value as "admin" | "manager" | "warehouse" | "support",
+                        role: e.target.value as "admin" | "manager" | "warehouse" | "printer",
                       })
                     }
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
@@ -506,13 +506,6 @@ export default function UsersPage() {
                     <p>📦 Lager & Leveranser</p>
                     <p>🎨 Foliering-bilder</p>
                     <p>✅ Placeringar</p>
-                  </>
-                )}
-                {role.value === "support" && (
-                  <>
-                    <p>💬 Legacy Support</p>
-                    <p>📖 Läsa data</p>
-                    <p>📞 Kundsupport</p>
                   </>
                 )}
               </div>
