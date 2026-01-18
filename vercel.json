@@ -1,6 +1,3 @@
 {
-  "buildCommand": "cd crm-dashboard && npm run build",
-  "installCommand": "cd crm-dashboard && npm install",
-  "outputDirectory": "crm-dashboard/.next",
-  "framework": "nextjs"
+  "root": "crm-dashboard"
 }
