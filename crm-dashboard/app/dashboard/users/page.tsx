@@ -169,7 +169,7 @@ export default function UsersPage() {
   };
 
   const handleCancel = () => {
-    setFormData({ email: "", full_name: "", role: "support" });
+    setFormData({ email: "", full_name: "", role: "manager" });
     setEditingId(null);
     setShowForm(false);
   };
