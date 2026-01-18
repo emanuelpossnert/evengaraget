@@ -514,7 +514,7 @@ export default function BookingReviewPage() {
       
       // Total
       pdf.setFontSize(12);
-      pdf.setFont(undefined, "bold");
+      pdf.setFont("helvetica", "bold");
       const totalAmount = (booking.total_amount || 0) + (booking.tax_amount || 0) + (booking.shipping_cost || 0);
       pdf.text(`TOTALT: ${totalAmount.toLocaleString("sv-SE")} SEK`, 20, yPosition);
 
