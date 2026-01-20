@@ -26,9 +26,15 @@ interface Task {
   priority: 'low' | 'medium' | 'high' | 'urgent';
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   assigned_to_name?: string;
+  assigned_to_user_id?: string;
   due_date?: string;
   created_at: string;
   updated_at: string;
+}
+
+interface User {
+  id: string;
+  full_name: string;
 }
 
 interface BookingInfo {
@@ -67,9 +73,20 @@ export default function TODOPage() {
   const [filter, setFilter] = useState<string>('pending');
   const [taskTypeFilter, setTaskTypeFilter] = useState<string>('all');
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [newTaskForm, setNewTaskForm] = useState({
+    title: '',
+    description: '',
+    priority: 'medium' as const,
+    task_type: 'custom',
+    due_date: '',
+    assigned_to_user_id: '',
+  });
 
   useEffect(() => {
     fetchTasks();
+    fetchUsers();
   }, []);
 
   const fetchTasks = async () => {
@@ -104,6 +121,20 @@ export default function TODOPage() {
       console.error('Error fetching tasks:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const { data: usersData, error } = await supabase
+        .from('user_profiles')
+        .select('id, full_name')
+        .order('full_name');
+
+      if (error) throw error;
+      setUsers(usersData || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
     }
   };
 
@@ -145,6 +176,53 @@ export default function TODOPage() {
     }
   };
 
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newTaskForm.title.trim()) {
+      setMessage({ type: 'error', text: 'Titel är obligatorisk' });
+      return;
+    }
+
+    try {
+      const selectedUser = newTaskForm.assigned_to_user_id 
+        ? users.find(u => u.id === newTaskForm.assigned_to_user_id)
+        : null;
+
+      const { error } = await supabase
+        .from('booking_tasks')
+        .insert([{
+          booking_id: null,
+          title: newTaskForm.title,
+          description: newTaskForm.description,
+          priority: newTaskForm.priority,
+          status: 'pending',
+          task_type: newTaskForm.task_type,
+          due_date: newTaskForm.due_date || null,
+          assigned_to_user_id: newTaskForm.assigned_to_user_id || null,
+          assigned_to_name: selectedUser?.full_name || null,
+        }]);
+
+      if (error) throw error;
+
+      setMessage({ type: 'success', text: 'Uppgift skapad!' });
+      setShowNewTaskModal(false);
+      setNewTaskForm({
+        title: '',
+        description: '',
+        priority: 'medium',
+        task_type: 'custom',
+        due_date: '',
+        assigned_to_user_id: '',
+      });
+      fetchTasks();
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error('Error creating task:', error);
+      setMessage({ type: 'error', text: 'Kunde inte skapa uppgift' });
+    }
+  };
+
   const filteredTasks = 
     (filter === 'all' ? tasks : tasks.filter((t) => t.status === filter))
     .filter((t) => taskTypeFilter === 'all' || t.task_type === taskTypeFilter);
@@ -169,6 +247,116 @@ export default function TODOPage() {
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
+      {/* Message Alert */}
+      {message && (
+        <div className={`fixed top-4 right-4 p-4 rounded-lg text-white z-50 ${
+          message.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        }`}>
+          {message.text}
+        </div>
+      )}
+
+      {/* New Task Modal */}
+      {showNewTaskModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Ny Uppgift</h2>
+            <form onSubmit={handleCreateTask} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
+                <input
+                  type="text"
+                  value={newTaskForm.title}
+                  onChange={(e) => setNewTaskForm({...newTaskForm, title: e.target.value})}
+                  placeholder="Vad ska göras?"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Beskrivning</label>
+                <textarea
+                  value={newTaskForm.description}
+                  onChange={(e) => setNewTaskForm({...newTaskForm, description: e.target.value})}
+                  placeholder="Mer information (valfritt)..."
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Typ</label>
+                <select
+                  value={newTaskForm.task_type}
+                  onChange={(e) => setNewTaskForm({...newTaskForm, task_type: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                >
+                  <option value="custom">📋 Uppgift</option>
+                  <option value="review">👀 Granska</option>
+                  <option value="confirm">✔️ Bekräfta</option>
+                  <option value="follow_up">📞 Följ upp</option>
+                  <option value="response_needed">💬 Meddelande</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Prioritet</label>
+                <select
+                  value={newTaskForm.priority}
+                  onChange={(e) => setNewTaskForm({...newTaskForm, priority: e.target.value as any})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                >
+                  <option value="low">🔵 Låg</option>
+                  <option value="medium">🟡 Medel</option>
+                  <option value="high">🟠 Hög</option>
+                  <option value="urgent">🔴 Brådskande</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Förfallodatum</label>
+                <input
+                  type="date"
+                  value={newTaskForm.due_date}
+                  onChange={(e) => setNewTaskForm({...newTaskForm, due_date: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tilldela till (valfritt)</label>
+                <select
+                  value={newTaskForm.assigned_to_user_id}
+                  onChange={(e) => setNewTaskForm({...newTaskForm, assigned_to_user_id: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">-- Ingen tilldelning --</option>
+                  {users.map(user => (
+                    <option key={user.id} value={user.id}>{user.full_name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowNewTaskModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition"
+                >
+                  Avbryt
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition"
+                >
+                  Skapa
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
