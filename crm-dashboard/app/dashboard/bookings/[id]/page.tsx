@@ -23,6 +23,9 @@ import {
   Eye,
   ChevronDown,
   ChevronUp,
+  Upload,
+  Download,
+  Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
@@ -102,6 +105,7 @@ export default function BookingReviewPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   // Review state
   const [reviewMode, setReviewMode] = useState(true);
@@ -317,7 +321,77 @@ export default function BookingReviewPage() {
     }
   };
 
-  // PDF Generation Functions
+  // Image Upload Function
+  const handleImageUpload = async (files: FileList) => {
+    if (!files || files.length === 0) return;
+
+    try {
+      setUploadingImages(true);
+      const uploadedImages: WrappingImage[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileName = `${bookingId}_${Date.now()}_${i}_${file.name}`;
+        const filePath = `booking_images/${bookingId}/${fileName}`;
+
+        // Upload to Supabase Storage
+        const { error: uploadError } = await supabase.storage
+          .from("booking-wrapping-images")
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from("booking-wrapping-images")
+          .getPublicUrl(filePath);
+
+        // Save to database
+        const { data: imgData, error: dbError } = await supabase
+          .from("booking_wrapping_images")
+          .insert([
+            {
+              booking_id: bookingId,
+              file_name: file.name,
+              image_url: urlData.publicUrl,
+              uploaded_by: "customer",
+              image_type: "customer_upload",
+            },
+          ])
+          .select()
+          .single();
+
+        if (dbError) throw dbError;
+        if (imgData) uploadedImages.push(imgData);
+      }
+
+      setWrappingImages((prev) => [...uploadedImages, ...prev]);
+      setMessage({ type: "success", text: `${uploadedImages.length} fil(er) uppladdade!` });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error("Error uploading images:", error);
+      setMessage({ type: "error", text: "Kunde inte ladda upp fil(er)" });
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const deleteImage = async (imageId: string) => {
+    try {
+      const { error } = await supabase
+        .from("booking_wrapping_images")
+        .delete()
+        .eq("id", imageId);
+
+      if (error) throw error;
+      setWrappingImages((prev) => prev.filter((img) => img.id !== imageId));
+      setMessage({ type: "success", text: "Bild borttagen!" });
+      setTimeout(() => setMessage(null), 2000);
+    } catch (error) {
+      console.error("Error deleting image:", error);
+      setMessage({ type: "error", text: "Kunde inte ta bort bild" });
+    }
+  };
   const generateAgreementPDF = async () => {
     if (!booking) return;
 
@@ -1070,42 +1144,92 @@ export default function BookingReviewPage() {
           </button>
 
           {/* Wrapping Images Gallery */}
-          {wrappingImages.length > 0 && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                🎨 Foliering Bilder ({wrappingImages.length})
-              </h3>
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+              🎨 Foliering Bilder ({wrappingImages.length})
+            </h3>
+
+            {/* Upload Section */}
+            <div className="mb-6 p-4 border-2 border-dashed border-blue-300 rounded-lg bg-blue-50">
+              <label className="flex flex-col items-center gap-2 cursor-pointer">
+                <Upload size={24} className="text-blue-600" />
+                <span className="text-sm font-semibold text-blue-600">Ladda upp folierings-bilder</span>
+                <span className="text-xs text-gray-600">(Klicka eller dra bilder här)</span>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => e.target.files && handleImageUpload(e.target.files)}
+                  disabled={uploadingImages}
+                  className="hidden"
+                />
+              </label>
+              {uploadingImages && (
+                <div className="mt-2">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-xs text-blue-600 text-center mt-2">Laddar upp...</p>
+                </div>
+              )}
+            </div>
+
+            {/* Images Grid */}
+            {wrappingImages.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {wrappingImages.map((img) => (
-                  <a
+                  <div
                     key={img.id}
-                    href={img.image_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="group relative overflow-hidden rounded-lg border border-gray-200 hover:border-blue-500 transition"
                   >
-                    <img
-                      src={img.image_url}
-                      alt={img.file_name}
-                      className="w-full h-32 object-cover group-hover:scale-110 transition"
-                      onError={(e) => {
-                        e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="%23999"%3E%3Cpath stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /%3E%3C/svg%3E';
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition flex items-center justify-center">
-                      <span className="text-white opacity-0 group-hover:opacity-100 transition text-sm font-semibold">Öppna</span>
+                    <a
+                      href={img.image_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block"
+                    >
+                      <img
+                        src={img.image_url}
+                        alt={img.file_name}
+                        className="w-full h-32 object-cover group-hover:scale-110 transition"
+                        onError={(e) => {
+                          e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="%23999"%3E%3Cpath stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /%3E%3C/svg%3E';
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition flex items-center justify-center">
+                        <span className="text-white opacity-0 group-hover:opacity-100 transition text-sm font-semibold">Öppna</span>
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white p-2">
+                        <p className="text-xs truncate font-semibold">{img.file_name}</p>
+                        <p className="text-xs opacity-75">
+                          {new Date(img.uploaded_at).toLocaleDateString('sv-SE')}
+                        </p>
+                      </div>
+                    </a>
+                    <div className="absolute top-2 right-2 gap-1 flex opacity-0 group-hover:opacity-100 transition">
+                      <a
+                        href={img.image_url}
+                        download={img.file_name}
+                        className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition"
+                        title="Ladda ner fil"
+                      >
+                        <Download size={14} />
+                      </a>
+                      <button
+                        onClick={() => deleteImage(img.id)}
+                        className="bg-red-600 text-white p-2 rounded-lg hover:bg-red-700 transition"
+                        title="Ta bort fil"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white p-2">
-                      <p className="text-xs truncate font-semibold">{img.file_name}</p>
-                      <p className="text-xs opacity-75">
-                        {new Date(img.uploaded_at).toLocaleDateString('sv-SE')}
-                      </p>
-                    </div>
-                  </a>
+                  </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500 text-sm">Inga bilder uppladdade än</p>
+              </div>
+            )}
+          </div>
 
           {/* Booking Notes Section */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">

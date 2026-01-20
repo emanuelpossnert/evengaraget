@@ -32,6 +32,8 @@ export default function PrinterPage() {
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
   useEffect(() => {
     fetchData();
@@ -85,7 +87,16 @@ export default function PrinterPage() {
     );
   }
 
-  const filteredOrders = orders;
+  const filteredOrders = orders.filter((order) => {
+    // Filter by date range
+    if (!startDate && !endDate) return true;
+    
+    const eventDate = new Date(order.event_date);
+    if (startDate && eventDate < new Date(startDate)) return false;
+    if (endDate && eventDate > new Date(endDate)) return false;
+    
+    return true;
+  });
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
@@ -110,6 +121,43 @@ export default function PrinterPage() {
           >
             🔄 Uppdatera
           </button>
+        </div>
+
+        {/* Date Filter */}
+        <div className="bg-white rounded-lg p-4 mb-6 border border-gray-200">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Från Datum</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Till Datum</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            {(startDate || endDate) && (
+              <div className="flex items-end">
+                <button
+                  onClick={() => {
+                    setStartDate('');
+                    setEndDate('');
+                  }}
+                  className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-semibold transition"
+                >
+                  Rensa Datumfilter
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Statistics */}
@@ -252,28 +300,37 @@ export default function PrinterPage() {
                           <p className="text-sm font-semibold text-gray-700 mb-2">📸 Uppladdade Bilder:</p>
                           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                             {orderImages.map(img => (
-                              <a
-                                key={img.id}
-                                href={img.image_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="relative group overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition"
-                              >
-                                <img
-                                  src={img.image_url}
-                                  alt={img.file_name}
-                                  className="w-full h-32 object-cover group-hover:scale-110 transition"
-                                />
-                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition rounded-lg">
-                                  <Download size={24} className="text-white" />
-                                </div>
-                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                                  <p className="text-xs text-white font-semibold truncate">{img.file_name}</p>
-                                  <p className="text-xs text-gray-300">
-                                    {new Date(img.uploaded_at).toLocaleDateString('sv-SE')}
-                                  </p>
-                                </div>
-                              </a>
+                              <div key={img.id} className="relative group">
+                                <a
+                                  href={img.image_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="relative group overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition block"
+                                >
+                                  <img
+                                    src={img.image_url}
+                                    alt={img.file_name}
+                                    className="w-full h-32 object-cover group-hover:scale-110 transition"
+                                  />
+                                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition rounded-lg">
+                                    <Download size={24} className="text-white" />
+                                  </div>
+                                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                                    <p className="text-xs text-white font-semibold truncate">{img.file_name}</p>
+                                    <p className="text-xs text-gray-300">
+                                      {new Date(img.uploaded_at).toLocaleDateString('sv-SE')}
+                                    </p>
+                                  </div>
+                                </a>
+                                <a
+                                  href={img.image_url}
+                                  download={img.file_name}
+                                  className="absolute top-2 right-2 bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 opacity-0 group-hover:opacity-100 transition z-10"
+                                  title="Ladda ner fil"
+                                >
+                                  <Download size={16} />
+                                </a>
+                              </div>
                             ))}
                           </div>
                         </div>
