@@ -11,17 +11,19 @@ export default function NewCustomerPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
-    full_name: "",
+    name: "",
     email: "",
     phone: "",
     company_name: "",
     org_number: "",
-    billing_street: "",
-    billing_postal_code: "",
-    billing_city: "",
-    delivery_street: "",
-    delivery_postal_code: "",
-    delivery_city: "",
+    street_address: "",
+    postal_code: "",
+    city: "",
+    country: "Sverige",
+    customer_type: "private",
+    status: "active",
+    notes: "",
+    is_vip: false,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -34,7 +36,7 @@ export default function NewCustomerPage() {
     setError(null);
 
     // Validation
-    if (!formData.full_name || !formData.email) {
+    if (!formData.name || !formData.email) {
       setError("Namn och email är obligatoriska");
       return;
     }
@@ -44,12 +46,7 @@ export default function NewCustomerPage() {
 
       const { data, error: insertError } = await supabase
         .from("customers")
-        .insert([
-          {
-            ...formData,
-            status: "active",
-          },
-        ])
+        .insert([formData])
         .select();
 
       if (insertError) throw insertError;
@@ -100,8 +97,8 @@ export default function NewCustomerPage() {
               </label>
               <input
                 type="text"
-                name="full_name"
-                value={formData.full_name}
+                name="name"
+                value={formData.name}
                 onChange={handleChange}
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
@@ -150,7 +147,7 @@ export default function NewCustomerPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Organisationsnummer
+                Organisations-nummer
               </label>
               <input
                 type="text"
@@ -161,21 +158,35 @@ export default function NewCustomerPage() {
                 placeholder="XXXXXXXXXX"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Kundtyp
+              </label>
+              <select
+                name="customer_type"
+                value={formData.customer_type}
+                onChange={(e) => setFormData(prev => ({...prev, customer_type: e.target.value}))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+              >
+                <option value="private">Privat</option>
+                <option value="business">Företag</option>
+              </select>
+            </div>
           </div>
         </div>
 
         {/* Billing Address */}
         <div className="bg-white rounded-lg p-6 border border-gray-200">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Fakturaadress</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Adress & Kontaktuppgifter</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Gata
+                Gatuadress
               </label>
               <input
                 type="text"
-                name="billing_street"
-                value={formData.billing_street}
+                name="street_address"
+                value={formData.street_address}
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
                 placeholder="Gatvägen 123"
@@ -187,8 +198,8 @@ export default function NewCustomerPage() {
               </label>
               <input
                 type="text"
-                name="billing_postal_code"
-                value={formData.billing_postal_code}
+                name="postal_code"
+                value={formData.postal_code}
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
                 placeholder="10000"
@@ -200,58 +211,57 @@ export default function NewCustomerPage() {
               </label>
               <input
                 type="text"
-                name="billing_city"
-                value={formData.billing_city}
+                name="city"
+                value={formData.city}
                 onChange={handleChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
                 placeholder="Stockholm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Land
+              </label>
+              <input
+                type="text"
+                name="country"
+                value={formData.country}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                placeholder="Sverige"
               />
             </div>
           </div>
         </div>
 
-        {/* Delivery Address */}
+        {/* Additional Info */}
         <div className="bg-white rounded-lg p-6 border border-gray-200">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Leveransadress</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Gata
-              </label>
-              <input
-                type="text"
-                name="delivery_street"
-                value={formData.delivery_street}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
-                placeholder="Gatvägen 123"
-              />
-            </div>
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Övriga Uppgifter</h2>
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Postnummer
+                Anteckningar
               </label>
-              <input
-                type="text"
-                name="delivery_postal_code"
-                value={formData.delivery_postal_code}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
-                placeholder="10000"
+              <textarea
+                name="notes"
+                value={formData.notes}
+                onChange={(e) => setFormData(prev => ({...prev, notes: e.target.value}))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500 resize-none"
+                placeholder="Lägg till anteckningar om kunden..."
+                rows={4}
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Stad
-              </label>
+            <div className="flex items-center gap-2">
               <input
-                type="text"
-                name="delivery_city"
-                value={formData.delivery_city}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
-                placeholder="Stockholm"
+                type="checkbox"
+                name="is_vip"
+                checked={formData.is_vip}
+                onChange={(e) => setFormData(prev => ({...prev, is_vip: e.target.checked}))}
+                className="w-4 h-4 rounded border-gray-300"
               />
+              <label className="text-sm font-medium text-gray-700">
+                VIP-kund
+              </label>
             </div>
           </div>
         </div>

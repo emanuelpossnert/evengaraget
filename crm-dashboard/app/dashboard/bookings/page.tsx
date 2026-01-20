@@ -309,11 +309,11 @@ export default function BookingsPage() {
           </p>
         </div>
         <button
-          onClick={() => router.push("/dashboard/bookings/new")}
+          onClick={() => router.push("/dashboard/bookings/new-manual")}
           className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-orange-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all font-semibold"
         >
           <Plus size={20} />
-          Ny Bokning
+          Ny Bokning (Manuell)
         </button>
       </div>
 

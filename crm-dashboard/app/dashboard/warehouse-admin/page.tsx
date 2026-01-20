@@ -68,6 +68,7 @@ export default function WarehouseAdminPage() {
     priority: 'medium' as const,
     assigned_to_user_id: '',
     due_date: '',
+    task_category: 'other' as 'pickup' | 'delivery' | 'custom' | 'other',
   });
 
   useEffect(() => {
@@ -203,7 +204,7 @@ export default function WarehouseAdminPage() {
           description: newTaskForm.description,
           priority: newTaskForm.priority,
           status: 'pending',
-          task_type: 'custom',
+          task_type: newTaskForm.task_category,
           assigned_to_user_id: newTaskForm.assigned_to_user_id,
           assigned_to_name: selectedUser?.full_name,
           due_date: newTaskForm.due_date || null,
@@ -343,6 +344,20 @@ export default function WarehouseAdminPage() {
               </div>
 
               <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Kategori *</label>
+                  <select
+                    value={newTaskForm.task_category}
+                    onChange={(e) => setNewTaskForm({...newTaskForm, task_category: e.target.value as any})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="pickup">📦 Upphämtning</option>
+                    <option value="delivery">🚚 Leverans</option>
+                    <option value="custom">📝 Lagerupgift</option>
+                    <option value="other">🔧 Övrig</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Prioritet</label>
                   <select
