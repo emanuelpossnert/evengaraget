@@ -75,6 +75,8 @@ export default function TODOPage() {
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [newTaskForm, setNewTaskForm] = useState({
     title: '',
     description: '',
@@ -229,7 +231,19 @@ export default function TODOPage() {
 
   const filteredTasks = 
     (filter === 'all' ? tasks : tasks.filter((t) => t.status === filter))
-    .filter((t) => taskTypeFilter === 'all' || t.task_type === taskTypeFilter);
+    .filter((t) => taskTypeFilter === 'all' || t.task_type === taskTypeFilter)
+    .filter((t) => {
+      // Filter by date range
+      if (!startDate && !endDate) return true;
+      
+      const taskDate = t.due_date || t.start_date;
+      if (!taskDate) return false;
+      
+      if (startDate && new Date(taskDate) < new Date(startDate)) return false;
+      if (endDate && new Date(taskDate) > new Date(endDate)) return false;
+      
+      return true;
+    });
 
   const stats = {
     total: tasks.length,
@@ -440,6 +454,43 @@ export default function TODOPage() {
               {f.label}
             </button>
           ))}
+        </div>
+
+        {/* Date Filter */}
+        <div className="bg-white rounded-lg p-4 mb-6 border border-gray-200">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Från Datum</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Till Datum</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            {(startDate || endDate) && (
+              <div className="flex items-end">
+                <button
+                  onClick={() => {
+                    setStartDate('');
+                    setEndDate('');
+                  }}
+                  className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-semibold transition"
+                >
+                  Rensa Datumfilter
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Task Type Filter */}

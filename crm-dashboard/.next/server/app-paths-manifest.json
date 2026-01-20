@@ -2,6 +2,6 @@
   "/dashboard/todo/page": "app/dashboard/todo/page.js",
   "/dashboard/printer/page": "app/dashboard/printer/page.js",
   "/dashboard/bookings/page": "app/dashboard/bookings/page.js",
-  "/dashboard/calendar/page": "app/dashboard/calendar/page.js",
-  "/dashboard/warehouse-admin/page": "app/dashboard/warehouse-admin/page.js"
+  "/dashboard/warehouse-admin/page": "app/dashboard/warehouse-admin/page.js",
+  "/dashboard/calendar/page": "app/dashboard/calendar/page.js"
 }
