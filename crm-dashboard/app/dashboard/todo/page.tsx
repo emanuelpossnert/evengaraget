@@ -80,7 +80,8 @@ export default function TODOPage() {
     description: '',
     priority: 'medium' as const,
     task_type: 'custom',
-    due_date: '',
+    start_date: '',
+    end_date: '',
     assigned_to_user_id: '',
   });
 
@@ -198,7 +199,9 @@ export default function TODOPage() {
           priority: newTaskForm.priority,
           status: 'pending',
           task_type: newTaskForm.task_type,
-          due_date: newTaskForm.due_date || null,
+          due_date: newTaskForm.start_date || null,
+          start_date: newTaskForm.start_date || null,
+          end_date: newTaskForm.end_date || newTaskForm.start_date || null,
           assigned_to_user_id: newTaskForm.assigned_to_user_id || null,
           assigned_to_name: selectedUser?.full_name || null,
         }]);
@@ -212,7 +215,8 @@ export default function TODOPage() {
         description: '',
         priority: 'medium',
         task_type: 'custom',
-        due_date: '',
+        start_date: '',
+        end_date: '',
         assigned_to_user_id: '',
       });
       fetchTasks();
@@ -292,6 +296,12 @@ export default function TODOPage() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                 >
                   <option value="custom">📋 Uppgift</option>
+                  <option value="internal">🏢 Internal</option>
+                  <option value="foliering">✨ Foliering</option>
+                  <option value="external_shipping">📮 Extern Frakt</option>
+                  <option value="customer_pickup">👤 Customer Pickup</option>
+                  <option value="booked">✅ Bokat</option>
+                  <option value="inquiry">❓ Förfrågan</option>
                   <option value="review">👀 Granska</option>
                   <option value="confirm">✔️ Bekräfta</option>
                   <option value="follow_up">📞 Följ upp</option>
@@ -314,11 +324,21 @@ export default function TODOPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Förfallodatum</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start-datum</label>
                 <input
                   type="date"
-                  value={newTaskForm.due_date}
-                  onChange={(e) => setNewTaskForm({...newTaskForm, due_date: e.target.value})}
+                  value={newTaskForm.start_date}
+                  onChange={(e) => setNewTaskForm({...newTaskForm, start_date: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Slut-datum (valfritt)</label>
+                <input
+                  type="date"
+                  value={newTaskForm.end_date}
+                  onChange={(e) => setNewTaskForm({...newTaskForm, end_date: e.target.value})}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                 />
               </div>

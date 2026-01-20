@@ -26,13 +26,14 @@ interface BookingEvent {
   id: string;
   booking_id: string;
   booking_number: string;
-  type: "pickup" | "delivery" | "event"; // pickup = upphämtning, delivery = leverans, event = själva eventet
+  type: "pickup" | "delivery" | "event" | "internal" | "foliering" | "external_shipping" | "customer_pickup" | "booked" | "inquiry"; // extended types
   date: string;
   end_date: string;
   location: string;
   customer_name: string;
   products: string;
   delivery_type?: "internal" | "external"; // For delivery events
+  category?: string;
 }
 
 interface DayColumn {
@@ -156,7 +157,14 @@ export default function CalendarGanttPage() {
     if (type === "pickup") return "bg-blue-500 hover:bg-blue-600 border-l-4 border-blue-700";
     if (type === "event") return "bg-green-500 hover:bg-green-600 border-l-4 border-green-700";
     if (type === "delivery" && delivery_type === "external") return "bg-orange-500 hover:bg-orange-600 border-l-4 border-orange-700";
-    return "bg-purple-500 hover:bg-purple-600 border-l-4 border-purple-700"; // internal delivery
+    if (type === "delivery") return "bg-purple-500 hover:bg-purple-600 border-l-4 border-purple-700"; // internal delivery
+    if (type === "internal") return "bg-indigo-500 hover:bg-indigo-600 border-l-4 border-indigo-700";
+    if (type === "foliering") return "bg-pink-500 hover:bg-pink-600 border-l-4 border-pink-700";
+    if (type === "external_shipping") return "bg-amber-600 hover:bg-amber-700 border-l-4 border-amber-800";
+    if (type === "customer_pickup") return "bg-cyan-500 hover:bg-cyan-600 border-l-4 border-cyan-700";
+    if (type === "booked") return "bg-emerald-600 hover:bg-emerald-700 border-l-4 border-emerald-800";
+    if (type === "inquiry") return "bg-slate-500 hover:bg-slate-600 border-l-4 border-slate-700";
+    return "bg-gray-500 hover:bg-gray-600 border-l-4 border-gray-700";
   };
 
   const getEventIcon = (type: string) => {
@@ -168,7 +176,14 @@ export default function CalendarGanttPage() {
   const getEventLabel = (type: string, delivery_type?: string) => {
     if (type === "pickup") return "Upphämtning";
     if (type === "event") return "Event";
-    return delivery_type === "external" ? "Extern Leverans" : "Intern Leverans";
+    if (type === "delivery") return delivery_type === "external" ? "Extern Leverans" : "Intern Leverans";
+    if (type === "internal") return "Internal";
+    if (type === "foliering") return "Foliering";
+    if (type === "external_shipping") return "Extern Frakt";
+    if (type === "customer_pickup") return "Customer Pickup";
+    if (type === "booked") return "Bokat";
+    if (type === "inquiry") return "Förfrågan";
+    return type;
   };
 
   return (
@@ -210,7 +225,7 @@ export default function CalendarGanttPage() {
 
       {/* Filters */}
       <div className="flex gap-2">
-        {["all", "pickup", "event", "delivery"].map((type) => (
+        {["all", "pickup", "delivery", "event", "internal", "foliering", "external_shipping", "customer_pickup", "booked", "inquiry"].map((type) => (
           <button
             key={type}
             onClick={() => setFilterType(type as any)}
@@ -221,9 +236,15 @@ export default function CalendarGanttPage() {
             }`}
           >
             {type === "all" && "Alla"}
-            {type === "pickup" && "Upphämtning"}
-            {type === "event" && "Event"}
-            {type === "delivery" && "Leverans"}
+            {type === "pickup" && "📦 Upphämtning"}
+            {type === "delivery" && "🚚 Leverans"}
+            {type === "event" && "🎉 Event"}
+            {type === "internal" && "🏢 Internal"}
+            {type === "foliering" && "✨ Foliering"}
+            {type === "external_shipping" && "📮 Extern Frakt"}
+            {type === "customer_pickup" && "👤 Customer Pickup"}
+            {type === "booked" && "✅ Bokat"}
+            {type === "inquiry" && "❓ Förfrågan"}
           </button>
         ))}
       </div>
