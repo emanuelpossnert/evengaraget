@@ -66,6 +66,13 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
         .neq("status", "completed");
       counts.warehouse = warehouseData?.length || 0;
 
+      // Antal "Fakturor att skicka" (invoices pending to be sent)
+      const { data: invoicesData } = await supabase
+        .from("invoices")
+        .select("id")
+        .eq("status", "draft");
+      counts.invoices = invoicesData?.length || 0;
+
       setBadges(counts);
     } catch (error) {
       console.error("Error fetching badge counts:", error);
@@ -120,6 +127,12 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       icon: Printer,
       href: "/dashboard/printer",
       roles: ["admin", "printer"],
+    },
+    {
+      name: "Fakturor",
+      icon: FileText,
+      href: "/dashboard/invoices",
+      roles: ["admin", "manager"],
     },
     {
       name: "Produkter & Prislista",
@@ -191,6 +204,7 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
           if (item.href === "/dashboard/bookings") badgeCount = badges.bookings || 0;
           if (item.href === "/dashboard/printer") badgeCount = badges.printer || 0;
           if (item.href === "/dashboard/warehouse") badgeCount = badges.warehouse || 0;
+          if (item.href === "/dashboard/invoices") badgeCount = badges.invoices || 0;
 
           return (
             <Link

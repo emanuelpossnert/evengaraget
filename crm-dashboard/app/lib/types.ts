@@ -228,7 +228,61 @@ export interface BookingEvent {
 }
 
 // =============================================
-// CONVERSATIONS & MESSAGES
+// INVOICES
+// =============================================
+export interface InvoiceItem {
+  name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+}
+
+export interface Invoice {
+  id: string;
+  booking_id: string;
+  invoice_number: string;
+  invoice_date: string;
+  due_date?: string;
+  customer_id: string;
+  customer_name: string;
+  customer_email: string;
+  customer_street_address?: string;
+  customer_postal_code?: string;
+  customer_city?: string;
+  customer_country?: string;
+  customer_org_number?: string;
+  company_name?: string;
+  company_address?: string;
+  company_vat_number?: string;
+  subtotal: number;
+  tax_amount: number;
+  total_amount: number;
+  currency: string;
+  items: InvoiceItem[];
+  status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
+  payment_date?: string;
+  payment_method?: string;
+  notes?: string;
+  terms_and_conditions?: string;
+  created_by_email?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InvoiceTask {
+  id: string;
+  booking_id: string;
+  invoice_id?: string;
+  title: string;
+  description?: string;
+  status: "pending" | "invoiced" | "cancelled";
+  task_type?: string;
+  completed_date?: string;
+  should_invoice_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // =============================================
 export interface Conversation {
   id: string;

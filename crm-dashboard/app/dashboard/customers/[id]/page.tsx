@@ -579,12 +579,35 @@ export default function CustomerCRMPage() {
                 <p className="text-gray-900 font-medium mt-1">{customer.company_name || "-"}</p>
               </div>
               <div>
+                <p className="text-xs text-gray-500 uppercase">Org-nummer</p>
+                <p className="text-gray-900 font-medium mt-1">{customer.org_number || "-"}</p>
+              </div>
+              <div className="md:col-span-2">
                 <p className="text-xs text-gray-500 uppercase">Adress</p>
                 <p className="text-gray-900 font-medium mt-1">
-                  {customer.address}, {customer.postal_code} {customer.city}
+                  {customer.street_address}, {customer.postal_code} {customer.city}, {customer.country}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase">Kundtyp</p>
+                <p className="text-gray-900 font-medium mt-1">
+                  {customer.customer_type === 'business' ? 'Företag' : 'Privat'}
+                  {customer.is_vip && ' (VIP)'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase">Status</p>
+                <p className="text-gray-900 font-medium mt-1">
+                  {customer.status === 'active' ? '🟢 Aktiv' : customer.status === 'inactive' ? '🟡 Inaktiv' : '🔴 Blockerad'}
                 </p>
               </div>
             </div>
+            {customer.notes && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <p className="text-xs text-gray-500 uppercase">Anteckningar</p>
+                <p className="text-gray-900 mt-1 whitespace-pre-wrap">{customer.notes}</p>
+              </div>
+            )}
           </div>
 
           {/* Priority & Next Action */}
