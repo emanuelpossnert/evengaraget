@@ -18,6 +18,7 @@ interface WarehouseTask {
   event_date: string;
   assigned_to_name: string;
   assigned_to_user_id?: string;
+  assigned_to_user_ids?: string[]; // Array for multiple assignees
   customer_name: string;
   task_type: string;
   delivery_type?: string; // "internal" or "external"
@@ -56,6 +57,7 @@ export default function WarehouseAdminPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [assigningTaskId, setAssigningTaskId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -209,26 +211,30 @@ export default function WarehouseAdminPage() {
     }
   };
 
-  const handleAssignTask = async (taskId: string, userId: string) => {
-    if (!userId) {
-      setMessage({ type: 'error', text: 'Välj en anställd' });
+  const handleAssignTask = async (taskId: string, userIds: string[]) => {
+    if (!userIds || userIds.length === 0) {
+      setMessage({ type: 'error', text: 'Välj minst en anställd' });
       return;
     }
 
     try {
-      const selectedUser = warehouseUsers.find(u => u.id === userId);
+      // Get names of selected users
+      const selectedUsers = warehouseUsers.filter(u => userIds.includes(u.id));
+      const assignedNames = selectedUsers.map(u => u.full_name).join(', ');
+
       const { error } = await supabase
         .from('booking_tasks')
         .update({
-          assigned_to_user_id: userId,
-          assigned_to_name: selectedUser?.full_name,
+          assigned_to_user_ids: userIds,
+          assigned_to_name: assignedNames,
         })
         .eq('id', taskId);
 
       if (error) throw error;
 
-      setMessage({ type: 'success', text: 'Uppgift tilldelad!' });
+      setMessage({ type: 'success', text: `Uppgift tilldelad ${selectedUsers.length} anställd${selectedUsers.length > 1 ? 'a' : ''}!` });
       setAssigningTaskId(null);
+      setSelectedUserIds(new Set());
       setSelectedUserId('');
       fetchData();
       setTimeout(() => setMessage(null), 2000);
@@ -701,25 +707,46 @@ export default function WarehouseAdminPage() {
                   {/* Assignment */}
                   <div className="md:col-span-2">
                     {assigningTaskId === task.id ? (
-                      <div className="flex gap-2">
-                        <select
-                          value={selectedUserId}
-                          onChange={(e) => setSelectedUserId(e.target.value)}
-                          className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
-                        >
-                          <option value="">-- Välj --</option>
+                      <div className="space-y-2">
+                        <div className="text-sm font-semibold text-gray-700 mb-2">Tilldela till (välj flera):</div>
+                        <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-300 rounded p-2 bg-gray-50">
                           {warehouseUsers.map(u => (
-                            <option key={u.id} value={u.id}>
-                              {u.full_name}
-                            </option>
+                            <label key={u.id} className="flex items-center gap-2 cursor-pointer hover:bg-blue-50 p-1 rounded">
+                              <input
+                                type="checkbox"
+                                checked={selectedUserIds.has(u.id)}
+                                onChange={(e) => {
+                                  const newSet = new Set(selectedUserIds);
+                                  if (e.target.checked) {
+                                    newSet.add(u.id);
+                                  } else {
+                                    newSet.delete(u.id);
+                                  }
+                                  setSelectedUserIds(newSet);
+                                }}
+                                className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                              />
+                              <span className="text-sm">{u.full_name}</span>
+                            </label>
                           ))}
-                        </select>
-                        <button
-                          onClick={() => handleAssignTask(task.id, selectedUserId)}
-                          className="px-3 py-1 bg-green-600 text-white rounded text-sm font-semibold hover:bg-green-700"
-                        >
-                          OK
-                        </button>
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            onClick={() => handleAssignTask(task.id, Array.from(selectedUserIds))}
+                            className="flex-1 px-3 py-1 bg-green-600 text-white rounded text-sm font-semibold hover:bg-green-700"
+                          >
+                            ✓ OK
+                          </button>
+                          <button
+                            onClick={() => {
+                              setAssigningTaskId(null);
+                              setSelectedUserIds(new Set());
+                            }}
+                            className="flex-1 px-3 py-1 bg-gray-400 text-white rounded text-sm font-semibold hover:bg-gray-500"
+                          >
+                            Avbryt
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <button
