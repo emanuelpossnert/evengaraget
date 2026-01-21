@@ -1,7 +1,7 @@
 {
-  "/dashboard/printer/page": "app/dashboard/printer/page.js",
-  "/dashboard/bookings/[id]/page": "app/dashboard/bookings/[id]/page.js",
   "/dashboard/calendar/page": "app/dashboard/calendar/page.js",
-  "/dashboard/users/page": "app/dashboard/users/page.js",
-  "/dashboard/customers/[id]/page": "app/dashboard/customers/[id]/page.js"
+  "/dashboard/printer/page": "app/dashboard/printer/page.js",
+  "/dashboard/customers/[id]/page": "app/dashboard/customers/[id]/page.js",
+  "/dashboard/bookings/[id]/page": "app/dashboard/bookings/[id]/page.js",
+  "/dashboard/users/page": "app/dashboard/users/page.js"
 }
