@@ -292,6 +292,9 @@ export default function TODOPage() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                 >
                   <option value="custom">📋 Uppgift</option>
+                  <option value="invoice">📄 Fakturering</option>
+                  <option value="delivery">🚚 Leverans</option>
+                  <option value="pickup">📦 Upphämtning</option>
                   <option value="internal">🏢 Internal</option>
                   <option value="foliering">✨ Foliering</option>
                   <option value="external_shipping">📮 Extern Frakt</option>
@@ -484,6 +487,9 @@ export default function TODOPage() {
             { key: 'confirm', label: '✔️ Bekräfta' },
             { key: 'follow_up', label: '📞 Följ upp' },
             { key: 'response_needed', label: '💬 Meddelanden' },
+            { key: 'invoice', label: '📄 Fakturering' },
+            { key: 'delivery', label: '🚚 Leverans' },
+            { key: 'pickup', label: '📦 Upphämtning' },
             { key: 'custom', label: '📋 Annat' },
           ].map((f) => (
             <button
