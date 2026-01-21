@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { Task, UserProfile } from '@/lib/types';
 import {
   ArrowLeft,
   Plus,
@@ -13,29 +14,10 @@ import {
   Filter,
   Calendar,
   Flag,
-  User,
+  User as UserIcon,
+  X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-
-interface Task {
-  id: string;
-  booking_id: string;
-  task_type: string;
-  title: string;
-  description?: string;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
-  assigned_to_name?: string;
-  assigned_to_user_id?: string;
-  due_date?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface User {
-  id: string;
-  full_name: string;
-}
 
 interface BookingInfo {
   id: string;
@@ -73,7 +55,7 @@ export default function TODOPage() {
   const [filter, setFilter] = useState<string>('pending');
   const [taskTypeFilter, setTaskTypeFilter] = useState<string>('all');
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
