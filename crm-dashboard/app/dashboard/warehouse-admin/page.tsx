@@ -309,13 +309,7 @@ export default function WarehouseAdminPage() {
     
     const taskDate = new Date(dateToCheck);
     
-    // If no date filters selected, show from today onwards by default
-    if (!startDate && !endDate) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (taskDate < today) return false; // Only show from today onwards
-    }
-    
+    // Apply date filters ONLY if they are set
     if (startDate) {
       const start = new Date(startDate);
       if (taskDate < start) return false;
