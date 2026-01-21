@@ -5,12 +5,12 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { 
   Plus, Search, FileText, Download, Eye, Trash2, Mail, DollarSign,
-  CheckCircle2, Clock, AlertCircle, ChevronDown
+  CheckCircle2, Clock, AlertCircle, ChevronDown, Archive
 } from "lucide-react";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
-import { Invoice } from "@/lib/types";
-import jsPDF from "jspdf";
+import { Invoice, SystemSetting } from "@/lib/types";
+import { exportInvoiceToPDF, exportMultipleInvoicesPDF } from "@/lib/pdf-utils";
 import { InvoiceModal } from "@/components/InvoiceModal";
 
 interface InvoiceWithBooking extends Invoice {
@@ -28,6 +28,9 @@ export default function InvoicesPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [settings, setSettings] = useState<SystemSetting | null>(null);
+  const [selectedInvoices, setSelectedInvoices] = useState<Set<string>>(new Set());
+  const [exportingBatch, setExportingBatch] = useState(false);
 
   const statusOptions = [
     { value: "all", label: "Alla" },
@@ -40,6 +43,7 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     fetchInvoices();
+    fetchSettings();
   }, []);
 
   useEffect(() => {
@@ -63,6 +67,19 @@ export default function InvoicesPage() {
 
     setFilteredInvoices(filtered);
   }, [searchTerm, statusFilter, invoices]);
+
+  const fetchSettings = async () => {
+    try {
+      const { data } = await supabase
+        .from("system_settings")
+        .select("*")
+        .limit(1)
+        .single();
+      if (data) setSettings(data);
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+    }
+  };
 
   const fetchInvoices = async () => {
     try {
@@ -133,94 +150,51 @@ export default function InvoicesPage() {
 
   const downloadPDF = async (invoice: InvoiceWithBooking) => {
     try {
-      const pdf = new jsPDF();
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      let y = 20;
-
-      // Header
-      pdf.setFontSize(24);
-      pdf.text("FAKTURA", pageWidth / 2, y, { align: "center" });
-      y += 15;
-
-      // Invoice info
-      pdf.setFontSize(11);
-      pdf.text(`Fakturanummer: ${invoice.invoice_number}`, 20, y);
-      y += 6;
-      pdf.text(`Datum: ${format(new Date(invoice.invoice_date), "d MMMM yyyy", { locale: sv })}`, 20, y);
-      y += 6;
-      if (invoice.due_date) {
-        pdf.text(`Förfallodatum: ${format(new Date(invoice.due_date), "d MMMM yyyy", { locale: sv })}`, 20, y);
-        y += 6;
-      }
-
-      y += 8;
-
-      // Customer info
-      pdf.setFontSize(12);
-      pdf.text("Till:", 20, y);
-      y += 6;
-      pdf.setFontSize(11);
-      pdf.text(invoice.customer_name, 20, y);
-      y += 5;
-      if (invoice.customer_org_number) {
-        pdf.text(`Org-nr: ${invoice.customer_org_number}`, 20, y);
-        y += 5;
-      }
-      if (invoice.customer_street_address) {
-        pdf.text(`${invoice.customer_street_address}`, 20, y);
-        y += 5;
-      }
-      if (invoice.customer_postal_code) {
-        pdf.text(`${invoice.customer_postal_code} ${invoice.customer_city}`, 20, y);
-        y += 5;
-      }
-
-      y += 8;
-
-      // Items table
-      pdf.setFontSize(11);
-      const headers = ["Beskrivning", "Antal", "Pris", "Totalt"];
-      const itemRows = (invoice.items || []).map((item: any) => [
-        item.name,
-        item.quantity.toString(),
-        `${item.unit_price.toLocaleString("sv-SE")} SEK`,
-        `${item.total_price.toLocaleString("sv-SE")} SEK`,
-      ]);
-
-      // Simple table
-      pdf.text(headers[0], 20, y);
-      pdf.text(headers[1], 100, y);
-      pdf.text(headers[2], 130, y);
-      pdf.text(headers[3], 160, y);
-      y += 8;
-
-      itemRows.forEach((row: string[]) => {
-        pdf.text(row[0], 20, y);
-        pdf.text(row[1], 100, y);
-        pdf.text(row[2], 130, y);
-        pdf.text(row[3], 160, y);
-        y += 6;
-      });
-
-      y += 8;
-
-      // Totals
-      pdf.setFontSize(12);
-      pdf.text(`Subtotal: ${invoice.subtotal.toLocaleString("sv-SE")} SEK`, 130, y);
-      y += 6;
-      if (invoice.tax_amount > 0) {
-        pdf.text(`Moms: ${invoice.tax_amount.toLocaleString("sv-SE")} SEK`, 130, y);
-        y += 6;
-      }
-      pdf.setFont("helvetica", "bold");
-      pdf.text(`TOTALT: ${invoice.total_amount.toLocaleString("sv-SE")} SEK`, 130, y);
-
-      pdf.save(`${invoice.invoice_number}.pdf`);
+      await exportInvoiceToPDF(invoice, settings || undefined);
       setMessage({ type: "success", text: "PDF hämtad!" });
       setTimeout(() => setMessage(null), 2000);
     } catch (error) {
       console.error("Error generating PDF:", error);
       setMessage({ type: "error", text: "Kunde inte generera PDF" });
+    }
+  };
+
+  const handleBatchExport = async () => {
+    if (selectedInvoices.size === 0) {
+      setMessage({ type: "error", text: "Välj minst en faktura" });
+      return;
+    }
+
+    try {
+      setExportingBatch(true);
+      const selectedList = filteredInvoices.filter((inv) => selectedInvoices.has(inv.id));
+      await exportMultipleInvoicesPDF(selectedList, settings || undefined);
+      setMessage({ type: "success", text: "PDFs exporterade!" });
+      setSelectedInvoices(new Set());
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error("Error exporting batch:", error);
+      setMessage({ type: "error", text: "Kunde inte exportera PDFs" });
+    } finally {
+      setExportingBatch(false);
+    }
+  };
+
+  const toggleSelectInvoice = (id: string) => {
+    const newSelected = new Set(selectedInvoices);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedInvoices(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedInvoices.size === filteredInvoices.length) {
+      setSelectedInvoices(new Set());
+    } else {
+      setSelectedInvoices(new Set(filteredInvoices.map((inv) => inv.id)));
     }
   };
 
@@ -319,6 +293,31 @@ export default function InvoicesPage() {
 
       {/* Invoices List */}
       <div className="space-y-4">
+        {/* Batch Export Toolbar */}
+        {selectedInvoices.size > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+            <p className="text-sm font-semibold text-blue-900">
+              {selectedInvoices.size} faktura{selectedInvoices.size !== 1 ? "or" : ""} vald{selectedInvoices.size !== 1 ? "a" : ""}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleBatchExport}
+                disabled={exportingBatch}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition disabled:opacity-50"
+              >
+                <Archive size={16} />
+                {exportingBatch ? "Exporterar..." : `Exportera ${selectedInvoices.size} som ZIP`}
+              </button>
+              <button
+                onClick={() => setSelectedInvoices(new Set())}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-semibold transition"
+              >
+                Avbryt urval
+              </button>
+            </div>
+          </div>
+        )}
+        
         {filteredInvoices.length === 0 ? (
           <div className="bg-white rounded-lg p-8 text-center border border-gray-200">
             <FileText size={48} className="mx-auto text-gray-300 mb-4" />
@@ -330,10 +329,17 @@ export default function InvoicesPage() {
               key={invoice.id}
               className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition"
             >
-              <button
-                onClick={() => setExpandedId(expandedId === invoice.id ? null : invoice.id)}
-                className="w-full p-4 text-left hover:bg-gray-50 flex items-center justify-between"
-              >
+              <div className="flex items-start gap-3 p-4 hover:bg-gray-50">
+                <input
+                  type="checkbox"
+                  checked={selectedInvoices.has(invoice.id)}
+                  onChange={() => toggleSelectInvoice(invoice.id)}
+                  className="mt-1 w-5 h-5 rounded border-gray-300"
+                />
+                <button
+                  onClick={() => setExpandedId(expandedId === invoice.id ? null : invoice.id)}
+                  className="flex-1 text-left"
+                >
                 <div className="flex-1">
                   <div className="flex items-center gap-4 mb-2">
                     <h3 className="font-bold text-lg text-gray-900">{invoice.invoice_number}</h3>
@@ -356,7 +362,8 @@ export default function InvoicesPage() {
                   size={20}
                   className={`text-gray-400 transition ${expandedId === invoice.id ? "rotate-180" : ""}`}
                 />
-              </button>
+                </button>
+              </div>
 
               {/* Expanded Details */}
               {expandedId === invoice.id && (

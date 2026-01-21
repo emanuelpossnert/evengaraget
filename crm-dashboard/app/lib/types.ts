@@ -284,6 +284,26 @@ export interface InvoiceTask {
 }
 
 // =============================================
+// SYSTEM SETTINGS
+// =============================================
+export interface SystemSetting {
+  id: string;
+  company_name?: string;
+  company_org_number?: string;
+  company_address?: string;
+  company_postal_code?: string;
+  company_city?: string;
+  company_country?: string;
+  company_bank_account?: string;
+  company_postgiro?: string;
+  company_website?: string;
+  tax_rate?: number;
+  currency?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// =============================================
 export interface Conversation {
   id: string;
   customer_email: string;
