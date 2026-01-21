@@ -170,26 +170,25 @@ export default function WarehouseAdminPage() {
       const allTasks = [...enrichedTasks, ...bookingPickupDeliveryTasks];
       
       setTasks(allTasks as WarehouseTask[]);
-        setBookingDetails(bookingMap);
+      setBookingDetails(bookingMap);
 
-        // Fetch booking notes for all bookings
-        const bookingIds = [...new Set(bookingsData?.map(b => b.id) || [])];
-        const { data: notesData } = await supabase
-          .from('booking_notes')
-          .select('*')
-          .in('booking_id', bookingIds)
-          .order('created_at', { ascending: false });
+      // Fetch booking notes for all bookings
+      const bookingIds = [...new Set(bookingsData?.map(b => b.id) || [])];
+      const { data: notesData } = await supabase
+        .from('booking_notes')
+        .select('*')
+        .in('booking_id', bookingIds)
+        .order('created_at', { ascending: false });
 
-        if (notesData) {
-          const notesMap = new Map<string, BookingNote[]>();
-          notesData.forEach(note => {
-            if (!notesMap.has(note.booking_id)) {
-              notesMap.set(note.booking_id, []);
-            }
-            notesMap.get(note.booking_id)!.push(note);
-          });
-          setBookingNotes(notesMap);
-        }
+      if (notesData) {
+        const notesMap = new Map<string, BookingNote[]>();
+        notesData.forEach(note => {
+          if (!notesMap.has(note.booking_id)) {
+            notesMap.set(note.booking_id, []);
+          }
+          notesMap.get(note.booking_id)!.push(note);
+        });
+        setBookingNotes(notesMap);
       }
 
       // Fetch warehouse users
