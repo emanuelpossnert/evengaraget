@@ -58,6 +58,8 @@ export default function WarehouseAdminPage() {
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [userFilter, setUserFilter] = useState<string>('all');
   const [bookingDetails, setBookingDetails] = useState<Map<string, BookingDetail>>(new Map());
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [bookingNotes, setBookingNotes] = useState<Map<string, BookingNote[]>>(new Map());
@@ -79,12 +81,11 @@ export default function WarehouseAdminPage() {
     try {
       setLoading(true);
 
-      // Fetch warehouse tasks - ONLY pickup, delivery, and custom (NO DATE FILTER - we filter on client)
+      // Fetch warehouse tasks - ALL pickup, delivery, and custom tasks (no status filter)
       const { data: tasksData } = await supabase
         .from('booking_tasks')
         .select('id, booking_id, title, description, priority, status, due_date, assigned_to_name, assigned_to_user_id, task_type')
         .in('task_type', ['pickup', 'delivery', 'custom'])
-        .neq('status', 'completed')
         .order('due_date', { ascending: true, nullsFirst: false });
 
       // Fetch booking details for tasks
@@ -237,8 +238,18 @@ export default function WarehouseAdminPage() {
     );
   }
 
-  // Filter tasks based on date range - use event_date for booking-related tasks, due_date for custom
+  // Filter tasks based on date range, status, and user assignment
   const filteredTasks = tasks.filter(task => {
+    // Filter by status
+    if (statusFilter !== 'all' && task.status !== statusFilter) {
+      return false;
+    }
+
+    // Filter by assigned user
+    if (userFilter !== 'all' && task.assigned_to_user_id !== userFilter) {
+      return false;
+    }
+
     // For booking-related tasks (pickup/delivery), use event_date
     const dateToCheck = task.event_date || task.due_date;
     
@@ -446,6 +457,50 @@ export default function WarehouseAdminPage() {
                 Rensa Filter
               </button>
             )}
+          </div>
+        </div>
+
+        {/* Status & User Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          {/* Status Filter */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Filtrera efter Status</label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { value: 'all', label: 'Alla' },
+                { value: 'pending', label: '⏳ Väntande' },
+                { value: 'in_progress', label: '⚡ Pågåande' },
+                { value: 'completed', label: '✅ Slutförda' }
+              ].map(option => (
+                <button
+                  key={option.value}
+                  onClick={() => setStatusFilter(option.value)}
+                  className={`px-3 py-1 rounded-lg text-sm font-semibold transition ${
+                    statusFilter === option.value
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* User Filter */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Filtrera efter Anställd</label>
+            <select
+              value={userFilter}
+              onChange={(e) => setUserFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">Alla anställda</option>
+              <option value="">Ej tilldelade</option>
+              {warehouseUsers.map(user => (
+                <option key={user.id} value={user.id}>{user.full_name}</option>
+              ))}
+            </select>
           </div>
         </div>
 

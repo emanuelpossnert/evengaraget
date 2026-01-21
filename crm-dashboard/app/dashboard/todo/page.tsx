@@ -614,5 +614,3 @@ export default function TODOPage() {
     </div>
   );
 }
-
-import { X } from 'lucide-react';
