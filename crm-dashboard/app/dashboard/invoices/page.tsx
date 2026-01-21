@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { sv } from "date-fns/locale";
 import { Invoice } from "@/lib/types";
 import jsPDF from "jspdf";
+import { InvoiceModal } from "@/components/InvoiceModal";
 
 interface InvoiceWithBooking extends Invoice {
   booking_number?: string;
@@ -26,6 +27,7 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
   const statusOptions = [
     { value: "all", label: "Alla" },
@@ -254,13 +256,25 @@ export default function InvoicesPage() {
           <p className="text-gray-500 mt-2">Hantera och visa alla fakturor</p>
         </div>
         <button
-          onClick={() => router.push("/dashboard/bookings")}
+          onClick={() => setShowInvoiceModal(true)}
           className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition"
         >
           <Plus size={20} />
-          Ny Faktura (från bokning)
+          Skapa Faktura
         </button>
       </div>
+
+      {/* Invoice Modal */}
+      {showInvoiceModal && (
+        <InvoiceModal
+          onClose={() => setShowInvoiceModal(false)}
+          onSuccess={() => {
+            fetchInvoices();
+            setMessage({ type: "success", text: "Faktura skapad!" });
+            setTimeout(() => setMessage(null), 3000);
+          }}
+        />
+      )}
 
       {/* Message */}
       {message && (

@@ -30,6 +30,8 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
+import { Customer, Invoice } from "@/lib/types";
+import { InvoiceModal } from "@/components/InvoiceModal";
 
 interface Customer {
   id: string;
@@ -110,9 +112,11 @@ export default function CustomerCRMPage() {
   const [tasks, setTasks] = useState<CustomerTask[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [bookingComments, setBookingComments] = useState<BookingComment[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<"overview" | "notes" | "tasks" | "calls" | "booking-messages" | "messages" | "bookings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "notes" | "tasks" | "calls" | "booking-messages" | "messages" | "bookings" | "invoices">("overview");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Forms
@@ -217,6 +221,27 @@ export default function CustomerCRMPage() {
       setLoading(false);
     }
   };
+
+  // Fetch invoices for this customer
+  const fetchInvoices = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("invoices")
+        .select("*")
+        .eq("customer_id", customerId)
+        .order("invoice_date", { ascending: false });
+      if (error) throw error;
+      setInvoices(data || []);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (invoices.length === 0 && activeTab === "invoices") {
+      fetchInvoices();
+    }
+  }, [activeTab]);
 
   const addNote = async () => {
     if (!newNote.trim()) return;
@@ -531,6 +556,7 @@ export default function CustomerCRMPage() {
           { id: "booking-messages", label: `Meddelanden (${bookingComments.length})`, icon: "💬" },
           { id: "messages", label: `E-post (${messages.length})`, icon: "📧" },
           { id: "bookings", label: `Bokningar (${bookings.length})`, icon: "📦" },
+          { id: "invoices", label: `Fakturor (${invoices.length})`, icon: "📋" },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -1206,6 +1232,85 @@ export default function CustomerCRMPage() {
               </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* INVOICES TAB */}
+      {activeTab === "invoices" && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-900">Fakturor för denna kund</h2>
+            <button
+              onClick={() => setShowInvoiceModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition"
+            >
+              <Plus size={18} />
+              Skapa Faktura
+            </button>
+          </div>
+
+          {showInvoiceModal && (
+            <InvoiceModal
+              initialCustomerId={customerId}
+              onClose={() => setShowInvoiceModal(false)}
+              onSuccess={() => {
+                fetchInvoices();
+                setMessage({ type: "success", text: "Faktura skapad!" });
+                setTimeout(() => setMessage(null), 3000);
+              }}
+            />
+          )}
+
+          {invoices.length === 0 ? (
+            <div className="bg-white rounded-lg p-8 text-center border border-gray-200">
+              <FileText size={48} className="mx-auto text-gray-300 mb-4" />
+              <p className="text-gray-500 font-semibold">Inga fakturor ännu</p>
+              <p className="text-gray-400 text-sm mt-1">Skapa en faktura för denna kund</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {invoices.map((invoice) => (
+                <div key={invoice.id} className="bg-white rounded-lg border border-gray-200 p-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900">{invoice.invoice_number}</p>
+                      <p className="text-sm text-gray-600">
+                        {format(new Date(invoice.invoice_date), "d MMM yyyy", { locale: sv })}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-blue-600">{invoice.total_amount.toLocaleString("sv-SE")} SEK</p>
+                      <span
+                        className={`inline-block text-xs px-2 py-1 rounded mt-1 ${
+                          invoice.status === "paid"
+                            ? "bg-green-100 text-green-700"
+                            : invoice.status === "sent"
+                              ? "bg-blue-100 text-blue-700"
+                              : invoice.status === "draft"
+                                ? "bg-gray-100 text-gray-700"
+                                : "bg-orange-100 text-orange-700"
+                        }`}
+                      >
+                        {invoice.status === "paid"
+                          ? "✅ Betald"
+                          : invoice.status === "sent"
+                            ? "📧 Skickad"
+                            : invoice.status === "draft"
+                              ? "📝 Utkast"
+                              : "⚠️ Förfallen"}
+                      </span>
+                    </div>
+                  </div>
+                  <a
+                    href={`/dashboard/invoices/${invoice.id}`}
+                    className="mt-3 text-blue-600 hover:text-blue-700 text-sm font-semibold"
+                  >
+                    Se detaljer →
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
