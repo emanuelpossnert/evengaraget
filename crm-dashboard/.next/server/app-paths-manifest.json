@@ -1,7 +1,8 @@
 {
-  "/dashboard/invoices/page": "app/dashboard/invoices/page.js",
-  "/dashboard/printer/page": "app/dashboard/printer/page.js",
-  "/dashboard/bookings/page": "app/dashboard/bookings/page.js",
+  "/not-found": "app/not-found.js",
+  "/dashboard/customers/page": "app/dashboard/customers/page.js",
+  "/dashboard/customers/[id]/page": "app/dashboard/customers/[id]/page.js",
+  "/dashboard/todo/page": "app/dashboard/todo/page.js",
   "/dashboard/bookings/[id]/page": "app/dashboard/bookings/[id]/page.js",
   "/dashboard/warehouse-admin/page": "app/dashboard/warehouse-admin/page.js"
 }

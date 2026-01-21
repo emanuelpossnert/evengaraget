@@ -582,7 +582,7 @@ export default function TODOPage() {
 
                         {task.assigned_to_name && (
                           <div className="flex items-center gap-1 text-gray-600">
-                            <User size={14} />
+                            <UserIcon size={14} />
                             {task.assigned_to_name}
                           </div>
                         )}
