@@ -81,46 +81,99 @@ export default function WarehouseAdminPage() {
     try {
       setLoading(true);
 
-      // Fetch warehouse tasks - ALL pickup, delivery, and custom tasks (no status filter)
+      // Fetch warehouse tasks from booking_tasks
       const { data: tasksData } = await supabase
         .from('booking_tasks')
         .select('id, booking_id, title, description, priority, status, due_date, assigned_to_name, assigned_to_user_id, task_type')
-        .in('task_type', ['pickup', 'delivery', 'custom'])
+        .in('task_type', ['pickup', 'delivery', 'custom', 'invoice'])
         .order('due_date', { ascending: true, nullsFirst: false });
 
-      // Fetch booking details for tasks
-      if (tasksData) {
-        const bookingIds = [...new Set(tasksData.map(t => t.booking_id))];
-        const { data: bookingsData } = await supabase
-          .from('bookings')
-          .select('id, booking_number, location, event_date, products_requested, customer_id, delivery_type')
-          .in('id', bookingIds);
+      // Fetch bookings for pickup/delivery operations
+      const { data: bookingsData } = await supabase
+        .from('bookings')
+        .select('id, booking_number, location, event_date, pickup_date, delivery_date, products_requested, customer_id, delivery_type, status')
+        .order('event_date', { ascending: true });
 
-        // Fetch customer names
-        const customerIds = bookingsData?.map(b => b.customer_id).filter(Boolean) || [];
-        const { data: customersData } = await supabase
-          .from('customers')
-          .select('id, name')
-          .in('id', customerIds);
+      // Fetch customer names
+      const customerIds = bookingsData?.map(b => b.customer_id).filter(Boolean) || [];
+      const { data: customersData } = await supabase
+        .from('customers')
+        .select('id, name')
+        .in('id', customerIds);
 
-        const customerMap = new Map(customersData?.map(c => [c.id, c.name]) || []);
-        const bookingMap = new Map(bookingsData?.map(b => [b.id, b]) || []);
+      const customerMap = new Map(customersData?.map(c => [c.id, c.name]) || []);
+      const bookingMap = new Map(bookingsData?.map(b => [b.id, b]) || []);
 
-        const enrichedTasks = tasksData.map(t => {
-          const booking = bookingMap.get(t.booking_id);
-          return {
-            ...t,
-            booking_number: booking?.booking_number || 'N/A',
-            location: booking?.location || 'N/A',
-            event_date: booking?.event_date || 'N/A',
-            customer_name: customerMap.get(booking?.customer_id) || 'Okänd kund',
-            delivery_type: booking?.delivery_type,
-          };
-        });
-        setTasks(enrichedTasks as WarehouseTask[]);
+      // Enrich booking_tasks
+      const enrichedTasks = tasksData?.map(t => {
+        const booking = bookingMap.get(t.booking_id);
+        return {
+          ...t,
+          booking_number: booking?.booking_number || 'N/A',
+          location: booking?.location || 'N/A',
+          event_date: booking?.event_date || 'N/A',
+          customer_name: customerMap.get(booking?.customer_id) || 'Okänd kund',
+          delivery_type: booking?.delivery_type,
+        };
+      }) || [];
+
+      // Add pickup/delivery operations from bookings
+      const bookingPickupDeliveryTasks: WarehouseTask[] = bookingsData?.flatMap(booking => {
+        const tasks: WarehouseTask[] = [];
+
+        // Add pickup task if booking has pickup_date
+        if (booking.pickup_date) {
+          tasks.push({
+            id: `${booking.id}-pickup`,
+            booking_id: booking.id,
+            title: `📦 Upphämtning: ${booking.booking_number}`,
+            description: `Upphämtning från ${booking.location || 'N/A'}`,
+            priority: 'medium',
+            status: booking.status === 'completed' ? 'completed' : 'pending',
+            due_date: booking.pickup_date,
+            booking_number: booking.booking_number,
+            location: booking.location || 'N/A',
+            event_date: booking.event_date,
+            assigned_to_name: '',
+            assigned_to_user_id: undefined,
+            customer_name: customerMap.get(booking.customer_id) || 'Okänd kund',
+            task_type: 'pickup',
+            delivery_type: booking.delivery_type,
+          });
+        }
+
+        // Add delivery task if booking has delivery_date
+        if (booking.delivery_date) {
+          tasks.push({
+            id: `${booking.id}-delivery`,
+            booking_id: booking.id,
+            title: `🚚 Leverans: ${booking.booking_number}`,
+            description: `Leverans till ${booking.location || 'N/A'}`,
+            priority: 'medium',
+            status: booking.status === 'completed' ? 'completed' : 'pending',
+            due_date: booking.delivery_date,
+            booking_number: booking.booking_number,
+            location: booking.location || 'N/A',
+            event_date: booking.event_date,
+            assigned_to_name: '',
+            assigned_to_user_id: undefined,
+            customer_name: customerMap.get(booking.customer_id) || 'Okänd kund',
+            task_type: 'delivery',
+            delivery_type: booking.delivery_type,
+          });
+        }
+
+        return tasks;
+      }) || [];
+
+      // Combine all tasks
+      const allTasks = [...enrichedTasks, ...bookingPickupDeliveryTasks];
+      
+      setTasks(allTasks as WarehouseTask[]);
         setBookingDetails(bookingMap);
 
         // Fetch booking notes for all bookings
+        const bookingIds = [...new Set(bookingsData?.map(b => b.id) || [])];
         const { data: notesData } = await supabase
           .from('booking_notes')
           .select('*')
