@@ -2,8 +2,118 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Percent, Save, Building2, Mail } from "lucide-react";
+import { Percent, Save, Building2, Mail, Lock } from "lucide-react";
 import { SystemSetting } from "@/lib/types";
+
+// Change Password Component
+function ChangePasswordSection() {
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [formData, setFormData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+
+    if (!formData.currentPassword || !formData.newPassword || !formData.confirmPassword) {
+      setMessage({ type: "error", text: "Alla fält är obligatoriska" });
+      return;
+    }
+
+    if (formData.newPassword !== formData.confirmPassword) {
+      setMessage({ type: "error", text: "Nya lösenorden matchar inte" });
+      return;
+    }
+
+    if (formData.newPassword.length < 6) {
+      setMessage({ type: "error", text: "Lösenordet måste vara minst 6 tecken" });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.updateUser({
+        password: formData.newPassword,
+      });
+
+      if (error) throw error;
+
+      setMessage({ type: "success", text: "Lösenord uppdaterat!" });
+      setFormData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error("Error changing password:", error);
+      const errorMsg = error instanceof Error ? error.message : "Kunde inte uppdatera lösenord";
+      setMessage({ type: "error", text: errorMsg });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={handleChangePassword} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Nuvarande Lösenord</label>
+          <input
+            type="password"
+            value={formData.currentPassword}
+            onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+            disabled={loading}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Nytt Lösenord</label>
+          <input
+            type="password"
+            value={formData.newPassword}
+            onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+            disabled={loading}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Bekräfta Nytt Lösenord</label>
+          <input
+            type="password"
+            value={formData.confirmPassword}
+            onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+            disabled={loading}
+          />
+        </div>
+
+        {message && (
+          <div
+            className={`p-4 rounded-lg text-sm font-medium ${
+              message.type === "success"
+                ? "bg-green-50 text-green-700 border border-green-200"
+                : "bg-red-50 text-red-700 border border-red-200"
+            }`}
+          >
+            {message.text}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold disabled:opacity-50"
+        >
+          <Lock size={18} />
+          {loading ? "Uppdaterar..." : "Uppdatera Lösenord"}
+        </button>
+      </form>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<SystemSetting | null>(null);
@@ -288,6 +398,12 @@ export default function SettingsPage() {
           <h2 className="text-2xl font-bold text-gray-900">Moms & Rabatter</h2>
         </div>
         <p className="text-sm text-gray-600">Momssatsen är redan inställd i Betalningsuppgifter-sektionen ovan.</p>
+      </div>
+
+      {/* General Terms & Policies */}
+      <div className="bg-white rounded-lg p-8 border border-gray-200 space-y-4">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">🔐 Ändra Lösenord</h2>
+        <ChangePasswordSection />
       </div>
 
       {/* General Terms & Policies */}

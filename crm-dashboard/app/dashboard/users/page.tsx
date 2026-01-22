@@ -8,7 +8,7 @@ interface UserProfile {
   id: string;
   email: string;
   full_name: string;
-  role: "admin" | "manager" | "warehouse" | "printer";
+  role: "admin" | "manager" | "warehouse" | "printer" | "support";
   avatar_url?: string;
   created_at: string;
   updated_at: string;
@@ -27,11 +27,13 @@ export default function UsersPage() {
   const [formData, setFormData] = useState<{
     email: string;
     full_name: string;
-    role: "admin" | "manager" | "warehouse" | "printer";
+    role: "admin" | "manager" | "warehouse" | "printer" | "support";
+    password?: string;
   }>({
     email: "",
     full_name: "",
     role: "manager",
+    password: "",
   });
   const [newUserPassword, setNewUserPassword] = useState<{ email: string; password: string } | null>(null);
   const [visiblePassword, setVisiblePassword] = useState<string | null>(null);
@@ -40,6 +42,7 @@ export default function UsersPage() {
   const roles = [
     { value: "admin", label: "👑 Admin", description: "Full tillgång - alla sidor, användarlistan, inställningar", color: "bg-red-100 text-red-700" },
     { value: "manager", label: "📊 Säljare / Support", description: "Hantera bokningar, kunder, produkter, analytics och kundsupport", color: "bg-blue-100 text-blue-700" },
+    { value: "support", label: "💬 Support", description: "Hantera kundkommunikation och supportärenden", color: "bg-green-100 text-green-700" },
     { value: "warehouse", label: "📦 Lager", description: "Leveranser, placeringar, foliering-bilder, lagerlistan", color: "bg-yellow-100 text-yellow-700" },
     { value: "printer", label: "🖨️ Tryckeri", description: "Se bekräftade ordrar med foliering och uppladdade bilder", color: "bg-purple-100 text-purple-700" },
   ];
@@ -102,6 +105,7 @@ export default function UsersPage() {
         setMessage({ type: "success", text: "Användare uppdaterad!" });
       } else {
         // Create new user via Supabase Admin API
+        const password = formData.password || Math.random().toString(36).slice(-12);
         const response = await fetch("/api/admin/create-user", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -109,7 +113,7 @@ export default function UsersPage() {
             email: formData.email,
             full_name: formData.full_name,
             role: formData.role,
-            password: Math.random().toString(36).slice(-12), // Generate temporary password
+            password: password,
           }),
         });
 
@@ -127,7 +131,7 @@ export default function UsersPage() {
         setMessage({ type: "success", text: "Användare skapad! Se lösenordet nedan." });
       }
 
-      setFormData({ email: "", full_name: "", role: "manager" });
+      setFormData({ email: "", full_name: "", role: "manager", password: "" });
       setEditingId(null);
       setShowForm(false);
       fetchUsers();
@@ -135,6 +139,39 @@ export default function UsersPage() {
     } catch (error) {
       console.error("Error saving user:", error);
       const errorMsg = error instanceof Error ? error.message : "Kunde inte spara användare";
+      setMessage({ type: "error", text: errorMsg });
+    }
+  };
+
+  const handleResetPassword = async (user: UserProfile) => {
+    const newPassword = prompt(`Ange nytt lösenord för ${user.full_name}:`);
+    if (!newPassword) return;
+
+    if (newPassword.length < 6) {
+      setMessage({ type: "error", text: "Lösenordet måste vara minst 6 tecken" });
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/admin/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.id,
+          newPassword: newPassword,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Kunde inte reseta lösenord");
+
+      // Show new password to admin
+      setVisiblePassword(newPassword);
+      setShowPasswordModal(true);
+      setMessage({ type: "success", text: `Lösenord resetat för ${user.full_name}` });
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      const errorMsg = error instanceof Error ? error.message : "Kunde inte reseta lösenord";
       setMessage({ type: "error", text: errorMsg });
     }
   };
@@ -286,7 +323,7 @@ export default function UsersPage() {
             <button
               onClick={() => {
                 setNewUserPassword(null);
-                setFormData({ email: "", full_name: "", role: "manager" });
+                setFormData({ email: "", full_name: "", role: "manager", password: "" });
                 setShowForm(false);
               }}
               className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold"
@@ -307,7 +344,7 @@ export default function UsersPage() {
           onClick={() => {
             setShowForm(true);
             setEditingId(null);
-            setFormData({ email: "", full_name: "", role: "manager" });
+            setFormData({ email: "", full_name: "", role: "manager", password: "" });
           }}
           className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-orange-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all font-semibold"
         >
@@ -358,6 +395,22 @@ export default function UsersPage() {
                   />
                 </div>
 
+                {!editingId && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Initialt Lösenord (valfritt)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.password || ""}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      placeholder="Läm tomt för slumpmässigt lösenord"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Om tomt genereras ett slumpmässigt lösenord</p>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Roll
@@ -367,7 +420,7 @@ export default function UsersPage() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        role: e.target.value as "admin" | "manager" | "warehouse" | "printer",
+                        role: e.target.value as "admin" | "manager" | "warehouse" | "printer" | "support",
                       })
                     }
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
@@ -461,6 +514,13 @@ export default function UsersPage() {
                     title="Visa lösenord"
                   >
                     <Eye size={18} />
+                  </button>
+                  <button
+                    onClick={() => handleResetPassword(user)}
+                    className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                    title="Reseta lösenord"
+                  >
+                    🔑
                   </button>
                   <button
                     onClick={() => handleEdit(user)}

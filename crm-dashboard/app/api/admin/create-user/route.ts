@@ -6,9 +6,18 @@ export async function POST(request: NextRequest) {
     const { email, full_name, role, password } = await request.json();
 
     // Validate input
-    if (!email || !full_name || !role || !password) {
+    if (!email || !full_name || !role) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Email, namn och roll är obligatoriska" },
+        { status: 400 }
+      );
+    }
+
+    // Validate role - only allow certain roles
+    const validRoles = ["admin", "manager", "warehouse", "printer", "support"];
+    if (!validRoles.includes(role)) {
+      return NextResponse.json(
+        { error: `Ogiltig roll: ${role}. Giltiga roller: ${validRoles.join(", ")}` },
         { status: 400 }
       );
     }
@@ -19,87 +28,69 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY || ""
     );
 
-    // 1. Create auth user
+    // Create auth user with the provided password (or generate one)
+    const finalPassword = password || Math.random().toString(36).slice(-12);
+
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        full_name,
-        role,
-      },
+      password: finalPassword,
+      email_confirm: true, // Auto-confirm the email
     });
 
     if (authError) {
       console.error("Auth error:", authError);
       return NextResponse.json(
-        { error: authError.message || "Kunde inte skapa användare i Auth" },
+        { error: `Kunde inte skapa användare: ${authError.message}` },
         { status: 400 }
       );
     }
 
     if (!authData.user) {
       return NextResponse.json(
-        { error: "Unexpected error: No user returned" },
-        { status: 500 }
-      );
-    }
-
-    // 2. Create user_profile record
-    const { error: profileError } = await supabaseAdmin
-      .from("user_profiles")
-      .insert([
-        {
-          id: authData.user.id,
-          email,
-          full_name,
-          role,
-        },
-      ]);
-
-    if (profileError) {
-      console.error("Profile error:", profileError);
-      // Try to delete the auth user if profile creation fails
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-      return NextResponse.json(
-        { error: profileError.message || "Kunde inte skapa användarprofil" },
+        { error: "Användaren skapades inte korrekt" },
         { status: 400 }
       );
     }
 
-    // 3. Store password in user_credentials (for admin to view)
-    const { error: credError } = await supabaseAdmin
-      .from("user_credentials")
-      .insert([
-        {
-          user_id: authData.user.id,
-          password,
-        },
-      ]);
+    // Insert user profile
+    const { error: profileError } = await supabaseAdmin
+      .from("user_profiles")
+      .insert({
+        id: authData.user.id,
+        email,
+        full_name,
+        role,
+      });
 
-    if (credError) {
-      console.error("Credential error:", credError);
-      // Don't fail here, just log it
+    if (profileError) {
+      console.error("Profile error:", profileError);
+      // Try to delete the auth user since profile creation failed
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      return NextResponse.json(
+        { error: `Kunde inte skapa användarprofil: ${profileError.message}` },
+        { status: 400 }
+      );
     }
 
+    // Return success with the password (so admin can see it)
     return NextResponse.json(
       {
         success: true,
-        message: "Användare skapad! Kopiera lösenordet och dela med personen.",
         user: {
           id: authData.user.id,
-          email,
+          email: authData.user.email,
           full_name,
           role,
-          password, // Return password for admin to share
+          password: finalPassword, // Return password to admin
         },
       },
       { status: 201 }
     );
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("Error creating user:", error);
+    const errorMsg = error instanceof Error ? error.message : "Okänt fel";
     return NextResponse.json(
-      { error: "Ett oväntat fel inträffade" },
+      { error: `Server error: ${errorMsg}` },
       { status: 500 }
     );
   }
