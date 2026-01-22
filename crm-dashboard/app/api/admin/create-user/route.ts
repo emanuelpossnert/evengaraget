@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate role - only allow certain roles that we know exist
-    const validRoles = ["admin", "sales", "warehouse", "printer", "support"];
+    const validRoles = ["admin", "manager", "warehouse", "printer", "support"];
     if (!validRoles.includes(role)) {
       console.warn(`⚠️ INVALID ROLE: ${role}. Valid: ${validRoles.join(", ")}`);
       return NextResponse.json(
@@ -74,15 +74,15 @@ export async function POST(request: NextRequest) {
       console.error("❌ PROFILE ERROR:", profileError);
       
       // If role was the problem, try with 'sales' as fallback
-      if (profileError.message.includes("role_check") && role !== "sales") {
-        console.warn(`⚠️ Role '${role}' failed, trying 'sales' instead...`);
+      if (profileError.message.includes("role_check") && role !== "manager") {
+        console.warn(`⚠️ Role '${role}' failed, trying 'manager' instead...`);
         const { error: fallbackError } = await supabaseAdmin
           .from("user_profiles")
           .insert({
             id: authData.user.id,
             email,
             full_name,
-            role: "sales", // Fallback role
+            role: "manager", // Fallback role
           });
 
         if (fallbackError) {
