@@ -33,28 +33,6 @@ import { sv } from "date-fns/locale";
 import { Customer, Invoice } from "@/lib/types";
 import { InvoiceModal } from "@/components/InvoiceModal";
 
-interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  company_name?: string;
-  address?: string;
-  postal_code?: string;
-  city?: string;
-  status: string;
-  total_bookings?: number;
-  total_revenue?: number;
-  lifetime_value?: number;
-  created_at: string;
-  priority?: string;
-  next_action_date?: string;
-  next_action_description?: string;
-  sales_owner?: string;
-  customer_segment?: string;
-  is_vip?: boolean;
-}
-
 interface CustomerNote {
   id: string;
   content: string;
