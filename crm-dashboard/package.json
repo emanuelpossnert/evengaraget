@@ -21,6 +21,7 @@
     "react-big-calendar": "^1.8.5",
     "jspdf": "^2.5.1",
     "html2canvas": "^1.4.1",
+    "jszip": "^3.10.1",
     "clsx": "^2.0.0"
   },
   "devDependencies": {
