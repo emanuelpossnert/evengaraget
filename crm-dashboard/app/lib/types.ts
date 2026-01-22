@@ -41,6 +41,9 @@ export interface Customer {
   created_at: string;
   updated_at: string;
   last_contact_at?: string;
+  priority?: "low" | "normal" | "high" | "urgent";
+  next_action_date?: string;
+  next_action_description?: string;
 }
 
 // =============================================
