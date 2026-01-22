@@ -8,7 +8,7 @@ interface UserProfile {
   id: string;
   email: string;
   full_name: string;
-  role: "admin" | "manager" | "warehouse" | "printer" | "support";
+  role: "admin" | "sales" | "warehouse" | "printer" | "support";
   avatar_url?: string;
   created_at: string;
   updated_at: string;
@@ -27,12 +27,12 @@ export default function UsersPage() {
   const [formData, setFormData] = useState<{
     email: string;
     full_name: string;
-    role: "admin" | "manager" | "warehouse" | "printer" | "support";
+    role: "admin" | "sales" | "warehouse" | "printer" | "support";
     password?: string;
   }>({
     email: "",
     full_name: "",
-    role: "manager",
+    role: "sales",
     password: "",
   });
   const [newUserPassword, setNewUserPassword] = useState<{ email: string; password: string } | null>(null);
@@ -41,7 +41,7 @@ export default function UsersPage() {
 
   const roles = [
     { value: "admin", label: "👑 Admin", description: "Full tillgång - alla sidor, användarlistan, inställningar", color: "bg-red-100 text-red-700" },
-    { value: "manager", label: "📊 Säljare / Support", description: "Hantera bokningar, kunder, produkter, analytics och kundsupport", color: "bg-blue-100 text-blue-700" },
+    { value: "sales", label: "📊 Säljare / Support", description: "Hantera bokningar, kunder, produkter, analytics och kundsupport", color: "bg-blue-100 text-blue-700" },
     { value: "support", label: "💬 Support", description: "Hantera kundkommunikation och supportärenden", color: "bg-green-100 text-green-700" },
     { value: "warehouse", label: "📦 Lager", description: "Leveranser, placeringar, foliering-bilder, lagerlistan", color: "bg-yellow-100 text-yellow-700" },
     { value: "printer", label: "🖨️ Tryckeri", description: "Se bekräftade ordrar med foliering och uppladdade bilder", color: "bg-purple-100 text-purple-700" },
@@ -131,7 +131,7 @@ export default function UsersPage() {
         setMessage({ type: "success", text: "Användare skapad! Se lösenordet nedan." });
       }
 
-      setFormData({ email: "", full_name: "", role: "manager", password: "" });
+      setFormData({ email: "", full_name: "", role: "sales", password: "" });
       setEditingId(null);
       setShowForm(false);
       fetchUsers();
@@ -323,7 +323,7 @@ export default function UsersPage() {
             <button
               onClick={() => {
                 setNewUserPassword(null);
-                setFormData({ email: "", full_name: "", role: "manager", password: "" });
+                setFormData({ email: "", full_name: "", role: "sales", password: "" });
                 setShowForm(false);
               }}
               className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold"
@@ -344,7 +344,7 @@ export default function UsersPage() {
           onClick={() => {
             setShowForm(true);
             setEditingId(null);
-            setFormData({ email: "", full_name: "", role: "manager", password: "" });
+            setFormData({ email: "", full_name: "", role: "sales", password: "" });
           }}
           className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-orange-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all font-semibold"
         >
@@ -420,7 +420,7 @@ export default function UsersPage() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        role: e.target.value as "admin" | "manager" | "warehouse" | "printer" | "support",
+                        role: e.target.value as "admin" | "sales" | "warehouse" | "printer" | "support",
                       })
                     }
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
