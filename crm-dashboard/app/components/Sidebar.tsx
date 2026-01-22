@@ -174,7 +174,7 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       name: "Inställningar",
       icon: Settings,
       href: "/dashboard/settings",
-      roles: ["admin"],
+      roles: ["admin", "manager", "printer", "warehouse", "support"],
     },
   ];
 

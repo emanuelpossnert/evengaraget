@@ -89,6 +89,13 @@ export default function UsersPage() {
       return;
     }
 
+    // Validate role
+    const validRoles = ["admin", "manager", "warehouse", "printer", "support"];
+    if (!validRoles.includes(formData.role)) {
+      setMessage({ type: "error", text: `Ogiltig roll: ${formData.role}. Giltiga roller: ${validRoles.join(", ")}` });
+      return;
+    }
+
     try {
       if (editingId) {
         // Update existing user
