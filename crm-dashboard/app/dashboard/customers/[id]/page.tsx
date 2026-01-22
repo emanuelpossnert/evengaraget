@@ -632,7 +632,7 @@ export default function CustomerCRMPage() {
                   <label className="block text-xs text-gray-600 mb-1">Prioritet</label>
                   <select
                     value={customerForm.priority || "normal"}
-                    onChange={(e) => setCustomerForm({ ...customerForm, priority: e.target.value })}
+                    onChange={(e) => setCustomerForm({ ...customerForm, priority: e.target.value as "low" | "normal" | "high" | "urgent" })}
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                   >
                     <option value="low">🟢 Låg</option>
