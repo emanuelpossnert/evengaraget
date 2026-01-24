@@ -521,7 +521,7 @@ export default function TODOPage() {
             </div>
           ) : (
             filteredTasks.map((task) => {
-              const booking = bookings.get(task.booking_id);
+              const booking = task.booking_id ? bookings.get(task.booking_id) : undefined;
               const colors = priorityColors[task.priority];
 
               return (
