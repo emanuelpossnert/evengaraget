@@ -265,6 +265,7 @@ export interface Invoice {
   status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
   payment_date?: string;
   payment_method?: string;
+  payment_terms?: string;
   notes?: string;
   terms_and_conditions?: string;
   created_by_email?: string;
