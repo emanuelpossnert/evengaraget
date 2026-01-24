@@ -278,6 +278,7 @@ export default function WarehouseAdminPage() {
         priority: 'medium',
         assigned_to_user_id: '',
         due_date: '',
+        task_category: 'custom',
       });
       setShowCreateForm(false);
       fetchData();
