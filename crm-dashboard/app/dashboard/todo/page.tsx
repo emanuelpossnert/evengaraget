@@ -113,11 +113,11 @@ export default function TODOPage() {
     try {
       const { data: usersData, error } = await supabase
         .from('user_profiles')
-        .select('id, full_name')
+        .select('id, email, full_name, role, created_at, updated_at')
         .order('full_name');
 
       if (error) throw error;
-      setUsers(usersData || []);
+      setUsers((usersData as UserProfile[]) || []);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
