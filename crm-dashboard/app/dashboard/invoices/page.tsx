@@ -214,6 +214,35 @@ export default function InvoicesPage() {
     }
   };
 
+  const handleUpdateStatus = async (invoiceId: string, newStatus: string) => {
+    try {
+      const updateData: any = { status: newStatus };
+      
+      // Add payment_date if setting to paid
+      if (newStatus === "paid") {
+        updateData.payment_date = format(new Date(), "yyyy-MM-dd");
+      }
+
+      const { error } = await supabase
+        .from("invoices")
+        .update(updateData)
+        .eq("id", invoiceId);
+
+      if (error) throw error;
+
+      // Update local state
+      setInvoices(invoices.map((i) =>
+        i.id === invoiceId ? { ...i, status: newStatus as any, payment_date: updateData.payment_date || i.payment_date } : i
+      ));
+
+      setMessage({ type: "success", text: `Status uppdaterad till ${getStatusLabel(newStatus)}` });
+      setTimeout(() => setMessage(null), 2000);
+    } catch (error) {
+      console.error("Error updating status:", error);
+      setMessage({ type: "error", text: "Kunde inte uppdatera status" });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -411,28 +440,48 @@ export default function InvoicesPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2 pt-4 border-t border-gray-200">
-                    <button
-                      onClick={() => downloadPDF(invoice)}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition"
-                    >
-                      <Download size={16} />
-                      Ladda ner PDF
-                    </button>
-                    <button
-                      onClick={() => router.push(`/dashboard/invoices/${invoice.id}`)}
-                      className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold transition"
-                    >
-                      <Eye size={16} />
-                      Visa
-                    </button>
-                    <button
-                      onClick={() => deleteInvoice(invoice.id)}
-                      className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 font-semibold transition"
-                    >
-                      <Trash2 size={16} />
-                      Ta bort
-                    </button>
+                  <div className="flex flex-col gap-4 pt-4 border-t border-gray-200">
+                    {/* Status Select */}
+                    <div className="flex items-center gap-3">
+                      <label className="text-sm font-semibold text-gray-700">Status:</label>
+                      <select
+                        value={invoice.status}
+                        onChange={(e) => handleUpdateStatus(invoice.id, e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500 font-medium"
+                      >
+                        <option value="draft">Utkast</option>
+                        <option value="sent">Skickad</option>
+                        <option value="paid">Betald</option>
+                        <option value="completed">✅ Färdig</option>
+                        <option value="overdue">Förfallen</option>
+                        <option value="cancelled">Avbruten</option>
+                      </select>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => downloadPDF(invoice)}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition"
+                      >
+                        <Download size={16} />
+                        Ladda ner PDF
+                      </button>
+                      <button
+                        onClick={() => router.push(`/dashboard/invoices/${invoice.id}`)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold transition"
+                      >
+                        <Eye size={16} />
+                        Visa
+                      </button>
+                      <button
+                        onClick={() => deleteInvoice(invoice.id)}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 font-semibold transition"
+                      >
+                        <Trash2 size={16} />
+                        Ta bort
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
