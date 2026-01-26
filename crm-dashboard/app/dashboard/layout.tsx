@@ -75,8 +75,8 @@ export default function DashboardLayout({
       {/* Sidebar */}
       <Sidebar user={user} onLogout={handleLogout} />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col ml-64">
+      {/* Main Content - Uses ml-64 by default, sidebar handles its own width */}
+      <div className="flex-1 flex flex-col" style={{ marginLeft: 'clamp(5rem, 100%, 16rem)' }}>
         {/* Top Bar */}
         <TopBar user={user} />
 
