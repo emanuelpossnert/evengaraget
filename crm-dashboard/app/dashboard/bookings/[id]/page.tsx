@@ -26,6 +26,7 @@ import {
   Upload,
   Download,
   Trash2,
+  Plus,
 } from "lucide-react";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
@@ -200,7 +201,8 @@ export default function BookingReviewPage() {
         updateData.delivery_city = editForm.delivery_city;
         updateData.delivery_type = editForm.delivery_type;
       } else if (section === "products") {
-        updateData.products_requested = editForm.products_requested;
+        // Convert products array to JSON string
+        updateData.products_requested = JSON.stringify(editForm.products_requested || []);
       } else if (section === "pricing") {
         updateData.total_amount = editForm.total_amount;
         updateData.tax_amount = editForm.tax_amount;
@@ -794,11 +796,12 @@ export default function BookingReviewPage() {
         {/* Right: Details (2 columns) */}
         <div className="lg:col-span-2 space-y-4">
           {/* Customer Section */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 opacity-75">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <Building2 size={18} /> Kund
               </h3>
+              <span className="text-xs text-gray-500 font-semibold bg-gray-100 px-2 py-1 rounded">🔒 Låst</span>
             </div>
             <div className="space-y-2 text-sm">
               <p className="font-semibold text-gray-900">{customer?.name}</p>
@@ -988,36 +991,101 @@ export default function BookingReviewPage() {
             )}
           </div>
 
-          {/* Products Section */}
+          {/* Products Section - Editable */}
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <Package size={18} /> Produkter ({products.length})
               </h3>
+              {editSection !== "products" && (
+                <button
+                  onClick={() => {
+                    setEditSection("products");
+                    setEditForm({ ...editForm, products_requested: products });
+                  }}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-semibold flex items-center gap-1"
+                >
+                  <Edit2 size={14} /> Redigera
+                </button>
+              )}
             </div>
 
             {editSection === "products" ? (
               <div className="space-y-3">
-                <p className="text-sm text-gray-600 mb-3">Produktlistan är låst efter granskning. Kontakta admin för ändringar.</p>
                 <div>
                   <label className="block text-xs text-gray-600 mb-2 font-semibold">Befintliga produkter:</label>
                   <div className="space-y-2 mb-4">
                     {products.map((p: any, idx: number) => (
                       <div key={idx} className="p-3 bg-gray-50 rounded border border-gray-200">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-900 font-medium">{p.name}</span>
-                          <span className="text-gray-600 text-sm">{p.quantity} st</span>
+                        <div className="flex justify-between items-center gap-2">
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              value={p.name}
+                              onChange={(e) => {
+                                const updated = [...products];
+                                updated[idx].name = e.target.value;
+                                setEditForm({ ...editForm, products_requested: updated });
+                              }}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                              placeholder="Produktnamn"
+                            />
+                          </div>
+                          <div className="w-20">
+                            <input
+                              type="number"
+                              min="1"
+                              value={p.quantity}
+                              onChange={(e) => {
+                                const updated = [...products];
+                                updated[idx].quantity = parseInt(e.target.value) || 1;
+                                setEditForm({ ...editForm, products_requested: updated });
+                              }}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                              placeholder="Qty"
+                            />
+                          </div>
+                          <button
+                            onClick={() => {
+                              const updated = products.filter((_: any, i: number) => i !== idx);
+                              setEditForm({ ...editForm, products_requested: updated });
+                            }}
+                            className="px-2 py-1 bg-red-100 text-red-600 rounded text-sm hover:bg-red-200"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
-                <div className="flex gap-2">
+
+                {/* Add new product */}
+                <div className="border-t border-gray-200 pt-3">
+                  <button
+                    onClick={() => {
+                      const updated = [...products, { name: '', quantity: 1 }];
+                      setEditForm({ ...editForm, products_requested: updated });
+                    }}
+                    className="w-full px-3 py-2 bg-blue-100 text-blue-600 rounded text-sm font-semibold hover:bg-blue-200 flex items-center justify-center gap-1"
+                  >
+                    <Plus size={14} /> Lägg till produkt
+                  </button>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => handleSaveEdit("products")}
+                    disabled={actionLoading}
+                    className="flex-1 px-3 py-2 bg-blue-100 text-blue-600 rounded text-sm font-semibold hover:bg-blue-200"
+                  >
+                    Spara
+                  </button>
                   <button
                     onClick={() => setEditSection(null)}
                     className="flex-1 px-3 py-2 bg-gray-100 text-gray-600 rounded text-sm font-semibold"
                   >
-                    Stäng
+                    Avbryt
                   </button>
                 </div>
               </div>
