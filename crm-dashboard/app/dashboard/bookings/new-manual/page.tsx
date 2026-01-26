@@ -132,6 +132,7 @@ export default function NewManualBookingPage() {
           name: newProductName,
           quantity: newProductQty,
           wrapping_requested: false,
+          addons: [], // Empty addons array, can be filled in review
         },
       ],
     }));
@@ -523,18 +524,25 @@ export default function NewManualBookingPage() {
           {formData.products.length > 0 ? (
             <div className="space-y-3">
               {formData.products.map((product, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{product.name}</p>
-                    <p className="text-sm text-gray-600">Antal: {product.quantity}</p>
+                <div key={idx} className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">{product.name}</p>
+                      <p className="text-sm text-gray-600">Antal: {product.quantity}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeProduct(idx)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => removeProduct(idx)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 size={18} />
-                  </button>
+                  
+                  {/* Addons - will be editable in review/booking page */}
+                  {product.addons && product.addons.length === 0 && (
+                    <p className="text-xs text-gray-500 italic">Tillägg kan läggas till i bokningsgranskning</p>
+                  )}
                 </div>
               ))}
             </div>
