@@ -37,6 +37,7 @@ export default function InvoicesPage() {
     { value: "draft", label: "Utkast" },
     { value: "sent", label: "Skickad" },
     { value: "paid", label: "Betald" },
+    { value: "completed", label: "✅ Färdig" },
     { value: "overdue", label: "Förfallen" },
     { value: "cancelled", label: "Avbruten" },
   ];

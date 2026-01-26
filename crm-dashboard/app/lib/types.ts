@@ -262,7 +262,7 @@ export interface Invoice {
   total_amount: number;
   currency: string;
   items: InvoiceItem[];
-  status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
+  status: "draft" | "sent" | "paid" | "overdue" | "cancelled" | "completed";
   payment_date?: string;
   payment_method?: string;
   payment_terms?: string;

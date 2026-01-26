@@ -26,7 +26,7 @@ export default function InvoiceDetailPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [formData, setFormData] = useState({
-    status: "draft" as "draft" | "sent" | "paid" | "overdue" | "cancelled",
+    status: "draft" as "draft" | "sent" | "paid" | "overdue" | "cancelled" | "completed",
     due_date: "",
     payment_terms: "",
     notes: "",
@@ -418,8 +418,12 @@ export default function InvoiceDetailPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
                 >
                   <option value="draft">Utkast</option>
+                  <option value="draft">Utkast</option>
                   <option value="sent">Skickad</option>
                   <option value="paid">Betald</option>
+                  <option value="completed">✅ Färdig</option>
+                  <option value="overdue">Förfallen</option>
+                  <option value="cancelled">Avbruten</option>
                   <option value="overdue">Förfallen</option>
                   <option value="cancelled">Avbruten</option>
                 </select>
