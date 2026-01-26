@@ -242,8 +242,7 @@ export default function CalendarGanttPage() {
                   key={day.toString()}
                   className="bg-gray-100 border-b-2 border-gray-300 p-4 text-center font-bold text-gray-900 min-w-40"
                 >
-                  <div className="text-sm uppercase">{format(day, "eee", { locale: sv })}</div>
-                  <div className="text-lg">{format(day, "d MMM", { locale: sv })}</div>
+                  <div>{format(day, "d MMM", { locale: sv })}</div>
                 </th>
               ))}
             </tr>
