@@ -813,31 +813,85 @@ export default function BookingReviewPage() {
 
           {/* Event Section */}
           <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-              <Calendar size={18} /> Event
-            </h3>
-            <div className="space-y-2 text-sm">
-              <p>
-                <span className="text-gray-600">Start:</span> {format(new Date(booking.event_date), "d MMM yyyy", { locale: sv })}
-              </p>
-              {booking.event_end_date && (
-                <p>
-                  <span className="text-gray-600">Slut:</span> {format(new Date(booking.event_end_date), "d MMM yyyy", { locale: sv })}
-                </p>
-              )}
-              <p>
-                <span className="text-gray-600">Plats:</span> 
-                <a 
-                  href={`https://www.google.com/maps/search/${encodeURIComponent(booking.location)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 underline ml-1"
-                  title="Öppna i Google Maps"
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Calendar size={18} /> Event
+              </h3>
+              {editSection !== "event" && (
+                <button
+                  onClick={() => {
+                    setEditSection("event");
+                    setEditForm(booking);
+                  }}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-semibold flex items-center gap-1"
                 >
-                  {booking.location} 🗺️
-                </a>
-              </p>
+                  <Edit2 size={14} /> Redigera
+                </button>
+              )}
             </div>
+
+            {editSection === "event" ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Event Start-datum</label>
+                  <input
+                    type="date"
+                    value={editForm.event_date?.split("T")[0] || ""}
+                    onChange={(e) => setEditForm({ ...editForm, event_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  />
+                </div>
+                {editForm.event_end_date && (
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Event Slut-datum</label>
+                    <input
+                      type="date"
+                      value={editForm.event_end_date?.split("T")[0] || ""}
+                      onChange={(e) => setEditForm({ ...editForm, event_end_date: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    />
+                  </div>
+                )}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => handleSaveEdit("event")}
+                    disabled={actionLoading}
+                    className="flex-1 px-3 py-2 bg-blue-100 text-blue-600 rounded text-sm font-semibold hover:bg-blue-200"
+                  >
+                    Spara
+                  </button>
+                  <button
+                    onClick={() => setEditSection(null)}
+                    className="flex-1 px-3 py-2 bg-gray-100 text-gray-600 rounded text-sm font-semibold"
+                  >
+                    Avbryt
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2 text-sm">
+                <p>
+                  <span className="text-gray-600">Start:</span> {format(new Date(booking.event_date), "d MMM yyyy", { locale: sv })}
+                </p>
+                {booking.event_end_date && (
+                  <p>
+                    <span className="text-gray-600">Slut:</span> {format(new Date(booking.event_end_date), "d MMM yyyy", { locale: sv })}
+                  </p>
+                )}
+                <p>
+                  <span className="text-gray-600">Plats:</span> 
+                  <a 
+                    href={`https://www.google.com/maps/search/${encodeURIComponent(booking.location)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 underline ml-1"
+                    title="Öppna i Google Maps"
+                  >
+                    {booking.location} 🗺️
+                  </a>
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Delivery Section - Editable */}
@@ -1014,11 +1068,12 @@ export default function BookingReviewPage() {
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs text-gray-600 mb-2 font-semibold">Befintliga produkter:</label>
-                  <div className="space-y-2 mb-4">
+                  <div className="space-y-3 mb-4">
                     {products.map((p: any, idx: number) => (
-                      <div key={idx} className="p-3 bg-gray-50 rounded border border-gray-200">
-                        <div className="flex justify-between items-center gap-2">
+                      <div key={idx} className="p-3 bg-gray-50 rounded border border-gray-200 space-y-2">
+                        <div className="flex justify-between items-start gap-2">
                           <div className="flex-1">
+                            <label className="block text-xs text-gray-500 mb-1">Produktnamn</label>
                             <input
                               type="text"
                               value={p.name}
@@ -1031,7 +1086,8 @@ export default function BookingReviewPage() {
                               placeholder="Produktnamn"
                             />
                           </div>
-                          <div className="w-20">
+                          <div className="w-24">
+                            <label className="block text-xs text-gray-500 mb-1">Antal</label>
                             <input
                               type="number"
                               min="1"
@@ -1050,11 +1106,36 @@ export default function BookingReviewPage() {
                               const updated = products.filter((_: any, i: number) => i !== idx);
                               setEditForm({ ...editForm, products_requested: updated });
                             }}
-                            className="px-2 py-1 bg-red-100 text-red-600 rounded text-sm hover:bg-red-200"
+                            className="mt-5 px-2 py-1 bg-red-100 text-red-600 rounded text-sm hover:bg-red-200"
                           >
                             <Trash2 size={14} />
                           </button>
                         </div>
+                        
+                        {/* Addons för denna produkt */}
+                        {p.addons && p.addons.length > 0 && (
+                          <div className="ml-2 pl-2 border-l-2 border-gray-300 pt-2">
+                            <label className="block text-xs text-gray-600 font-semibold mb-2">Tillägg:</label>
+                            <div className="space-y-1">
+                              {p.addons.map((addon: any, addonIdx: number) => (
+                                <label key={addonIdx} className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={addon.selected || false}
+                                    onChange={(e) => {
+                                      const updated = [...products];
+                                      if (!updated[idx].addons) updated[idx].addons = [];
+                                      updated[idx].addons[addonIdx].selected = e.target.checked;
+                                      setEditForm({ ...editForm, products_requested: updated });
+                                    }}
+                                    className="w-4 h-4 rounded border-gray-300"
+                                  />
+                                  <span className="text-xs text-gray-700">{addon.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1064,7 +1145,7 @@ export default function BookingReviewPage() {
                 <div className="border-t border-gray-200 pt-3">
                   <button
                     onClick={() => {
-                      const updated = [...products, { name: '', quantity: 1 }];
+                      const updated = [...products, { name: '', quantity: 1, addons: [] }];
                       setEditForm({ ...editForm, products_requested: updated });
                     }}
                     className="w-full px-3 py-2 bg-blue-100 text-blue-600 rounded text-sm font-semibold hover:bg-blue-200 flex items-center justify-center gap-1"
@@ -1090,11 +1171,20 @@ export default function BookingReviewPage() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {products.map((p: any, idx: number) => (
-                  <div key={idx} className="flex justify-between text-sm py-2 border-b border-gray-100 last:border-0">
-                    <span className="text-gray-700">{p.name}</span>
-                    <span className="font-semibold text-gray-900">{p.quantity} st</span>
+                  <div key={idx} className="py-2 border-b border-gray-100 last:border-0">
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-gray-700 font-medium">{p.name}</span>
+                      <span className="font-semibold text-gray-900">{p.quantity} st</span>
+                    </div>
+                    {p.addons && p.addons.length > 0 && (
+                      <div className="ml-2 text-xs text-gray-600">
+                        {p.addons.filter((a: any) => a.selected).map((addon: any, i: number) => (
+                          <div key={i}>✓ {addon.name}</div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
