@@ -280,7 +280,6 @@ export default function CalendarGanttPage() {
                           rowSpan={dayEvents.length}
                           className="border-r border-gray-200 p-4 bg-gray-50 font-medium text-gray-900 sticky left-0 z-10 align-top"
                         >
-                          {format(day, "cccc", { locale: sv }).toUpperCase()}
                         </td>
                       )}
                       <td className="border-r border-gray-200 p-0"></td>
@@ -330,7 +329,11 @@ export default function CalendarGanttPage() {
               .filter((b) => filterType === "all" || b.type === filterType)
               .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
               .map((event) => (
-                <div key={event.id} className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div 
+                  key={event.id} 
+                  onClick={() => setSelectedEvent(event)}
+                  className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:shadow-md hover:bg-white transition-all"
+                >
                   <div className={`${getEventColor(event.type, event.delivery_type)} text-white rounded p-2 flex-shrink-0`}>
                     {getEventIcon(event.type)}
                   </div>
