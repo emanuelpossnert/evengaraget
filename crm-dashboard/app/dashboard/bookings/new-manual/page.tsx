@@ -28,6 +28,7 @@ interface FormProduct {
   name: string;
   quantity: number;
   wrapping_requested: boolean;
+  addons?: any[]; // Addons array for future expansion
 }
 
 export default function NewManualBookingPage() {
