@@ -25,10 +25,12 @@ interface Product {
 }
 
 interface FormProduct {
+  id?: string;
   name: string;
   quantity: number;
   wrapping_requested: boolean;
-  addons?: any[]; // Addons array for future expansion
+  addons?: any[];
+  price_per_day?: number; // Price for calculation
 }
 
 export default function NewManualBookingPage() {
@@ -83,16 +85,24 @@ export default function NewManualBookingPage() {
 
   const fetchCustomersAndProducts = async () => {
     try {
-      const [customersRes, productsRes] = await Promise.all([
+      const [customersRes, productsRes, addonsRes] = await Promise.all([
         supabase.from("customers").select("*").order("name"),
         supabase.from("products").select("id, name, base_price_per_day").order("name"),
+        supabase.from("addons").select("id, name, price, product_id").order("product_id"),
       ]);
 
       if (customersRes.error) throw customersRes.error;
       if (productsRes.error) throw productsRes.error;
 
       setCustomers(customersRes.data || []);
-      setProducts(productsRes.data || []);
+      
+      // Attach addons to products
+      const productsWithAddons = (productsRes.data || []).map(product => ({
+        ...product,
+        addons: (addonsRes.data || []).filter(addon => addon.product_id === product.id)
+      }));
+      
+      setProducts(productsWithAddons);
     } catch (err) {
       console.error("Error fetching data:", err);
     }
@@ -119,6 +129,12 @@ export default function NewManualBookingPage() {
       return;
     }
 
+    const selectedProduct = products.find((p) => p.name === newProductName);
+    if (!selectedProduct) {
+      setError("Produkt inte hittad");
+      return;
+    }
+
     const exists = formData.products.some((p) => p.name === newProductName);
     if (exists) {
       setError("Produkten är redan tillagd");
@@ -130,10 +146,12 @@ export default function NewManualBookingPage() {
       products: [
         ...prev.products,
         {
+          id: selectedProduct.id,
           name: newProductName,
           quantity: newProductQty,
           wrapping_requested: false,
-          addons: [], // Empty addons array, can be filled in review
+          addons: selectedProduct.addons?.map((addon: any) => ({ ...addon, selected: false })) || [],
+          price_per_day: selectedProduct.base_price_per_day,
         },
       ],
     }));
@@ -529,7 +547,10 @@ export default function NewManualBookingPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">{product.name}</p>
-                      <p className="text-sm text-gray-600">Antal: {product.quantity}</p>
+                      <p className="text-sm text-gray-600">Antal: {product.quantity} × {product.price_per_day || 0} SEK/dag</p>
+                      {product.price_per_day && (
+                        <p className="text-xs text-gray-500">= {product.quantity * (product.price_per_day || 0) * 1} SEK (1 dag)</p>
+                      )}
                     </div>
                     <button
                       type="button"
@@ -540,9 +561,28 @@ export default function NewManualBookingPage() {
                     </button>
                   </div>
                   
-                  {/* Addons - will be editable in review/booking page */}
-                  {product.addons && product.addons.length === 0 && (
-                    <p className="text-xs text-gray-500 italic">Tillägg kan läggas till i bokningsgranskning</p>
+                  {/* Addons */}
+                  {product.addons && product.addons.length > 0 && (
+                    <div className="ml-2 pl-2 border-l-2 border-gray-300 pt-2 space-y-1">
+                      <p className="text-xs font-semibold text-gray-700">Tillgängliga tillägg:</p>
+                      {product.addons.map((addon: any, addonIdx: number) => (
+                        <label key={addonIdx} className="flex items-center gap-2 cursor-pointer text-xs">
+                          <input
+                            type="checkbox"
+                            checked={addon.selected || false}
+                            onChange={(e) => {
+                              const updated = [...formData.products];
+                              if (updated[idx].addons) {
+                                updated[idx].addons![addonIdx].selected = e.target.checked;
+                              }
+                              setFormData({ ...formData, products: updated });
+                            }}
+                            className="w-4 h-4 rounded border-gray-300"
+                          />
+                          <span>{addon.name} ({addon.price || 0} SEK)</span>
+                        </label>
+                      ))}
+                    </div>
                   )}
                 </div>
               ))}
