@@ -46,6 +46,7 @@ export default function CalendarGanttPage() {
   const [bookings, setBookings] = useState<BookingEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<"all" | "pickup" | "delivery" | "event">("all");
+  const [selectedEvent, setSelectedEvent] = useState<BookingEvent | null>(null);
 
   const weekStart = startOfWeek(currentWeekStart, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
@@ -297,14 +298,16 @@ export default function CalendarGanttPage() {
                           rowSpan={dayEvents.length}
                           className="border-r border-gray-200 p-4 bg-gray-50 font-medium text-gray-900 sticky left-0 z-10 align-top"
                         >
-                          {format(day, "cccc", { locale: sv }).toUpperCase()}
                         </td>
                       )}
                       <td className="border-r border-gray-200 p-0"></td>
                       {weekDays.map((weekDay) => (
                         <td key={weekDay.toString()} className="border-r border-gray-200 p-2 text-center min-w-40">
                           {isSameDay(weekDay, day) && (
-                            <div className={`${getEventColor(event.type, event.delivery_type)} text-white rounded px-3 py-2 text-sm font-medium cursor-pointer hover:shadow-md transition-all group`}>
+                            <div 
+                              onClick={() => setSelectedEvent(event)}
+                              className={`${getEventColor(event.type, event.delivery_type)} text-white rounded px-3 py-2 text-sm font-medium cursor-pointer hover:shadow-md transition-all group`}
+                            >
                               <div className="flex items-center gap-1 justify-center mb-1">
                                 {getEventIcon(event.type)}
                                 <span>{getEventLabel(event.type, event.delivery_type)}</span>
@@ -344,7 +347,11 @@ export default function CalendarGanttPage() {
               .filter((b) => filterType === "all" || b.type === filterType)
               .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
               .map((event) => (
-                <div key={event.id} className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div 
+                  key={event.id} 
+                  onClick={() => setSelectedEvent(event)}
+                  className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:shadow-md hover:bg-white transition-all"
+                >
                   <div className={`${getEventColor(event.type, event.delivery_type)} text-white rounded p-2 flex-shrink-0`}>
                     {getEventIcon(event.type)}
                   </div>
@@ -363,6 +370,58 @@ export default function CalendarGanttPage() {
           )}
         </div>
       </div>
+
+      {/* Event Detail Popup */}
+      {selectedEvent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className={`${getEventColor(selectedEvent.type, selectedEvent.delivery_type)} text-white p-6 rounded-t-lg`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  {getEventIcon(selectedEvent.type)}
+                  <span className="font-bold text-lg">{getEventLabel(selectedEvent.type, selectedEvent.delivery_type)}</span>
+                </div>
+                <button onClick={() => setSelectedEvent(null)} className="p-1 hover:bg-white hover:bg-opacity-20 rounded">✕</button>
+              </div>
+              <p className="text-sm opacity-90">{selectedEvent.booking_number}</p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <p className="text-sm text-gray-600 font-semibold mb-1">Kund</p>
+                <p className="text-gray-900">{selectedEvent.customer_name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 font-semibold mb-1 flex items-center gap-1">
+                  <MapPin size={16} />
+                  Plats
+                </p>
+                <p className="text-gray-900">{selectedEvent.location}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 font-semibold mb-1 flex items-center gap-1">
+                  <Package size={16} />
+                  Produkter
+                </p>
+                <p className="text-gray-900 text-sm">{selectedEvent.products}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 font-semibold mb-1 flex items-center gap-1">
+                  <CalendarIcon size={16} />
+                  Datum
+                </p>
+                <p className="text-gray-900">{format(new Date(selectedEvent.date), "EEEE d MMMM yyyy", { locale: sv })}</p>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 p-4 flex gap-3">
+              <button onClick={() => setSelectedEvent(null)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">
+                Stäng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
