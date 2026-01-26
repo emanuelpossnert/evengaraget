@@ -183,7 +183,7 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
     <aside className={`fixed left-0 top-0 h-screen ${isMinimized ? 'w-20' : 'w-64'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300`}>
       {/* Header */}
       <div className={`p-4 border-b border-gray-200 flex items-center ${isMinimized ? 'justify-center' : 'justify-between'}`}>
-        {!isMinimized && <img src="/logo.png" alt="EventGaraget" className="h-8" />}
+        {!isMinimized && <img src="/logo.png" alt="EventGaraget" className="h-16" />}
         <button
           onClick={() => setIsMinimized(!isMinimized)}
           className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
