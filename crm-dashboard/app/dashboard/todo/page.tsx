@@ -56,6 +56,7 @@ export default function TODOPage() {
   const [taskTypeFilter, setTaskTypeFilter] = useState<string>('all');
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -192,9 +193,9 @@ export default function TODOPage() {
     }
 
     try {
-      const selectedUser = newTaskForm.assigned_to_user_id 
-        ? users.find(u => u.id === newTaskForm.assigned_to_user_id)
-        : null;
+      // Get selected users info
+      const selectedUsers = users.filter(u => selectedUserIds.has(u.id));
+      const assignedNames = selectedUsers.map(u => u.full_name).join(', ');
 
       const { error } = await supabase
         .from('booking_tasks')
@@ -208,8 +209,8 @@ export default function TODOPage() {
           due_date: newTaskForm.start_date || null,
           start_date: newTaskForm.start_date || null,
           end_date: newTaskForm.end_date || newTaskForm.start_date || null,
-          assigned_to_user_id: newTaskForm.assigned_to_user_id || null,
-          assigned_to_name: selectedUser?.full_name || null,
+          assigned_to_user_ids: Array.from(selectedUserIds),
+          assigned_to_name: assignedNames || null,
         }]);
 
       if (error) throw error;
@@ -225,6 +226,7 @@ export default function TODOPage() {
         end_date: '',
         assigned_to_user_id: '',
       });
+      setSelectedUserIds(new Set());
       fetchTasks();
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
@@ -365,17 +367,40 @@ export default function TODOPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tilldela till (valfritt)</label>
-                <select
-                  value={newTaskForm.assigned_to_user_id}
-                  onChange={(e) => setNewTaskForm({...newTaskForm, assigned_to_user_id: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                >
-                  <option value="">-- Ingen tilldelning --</option>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tilldela till (valfritt)</label>
+                <div className="border border-gray-300 rounded-lg p-3 bg-gray-50 max-h-48 overflow-y-auto">
+                  {/* No assignment option */}
+                  <label className="flex items-center gap-2 cursor-pointer hover:bg-blue-50 p-2 rounded mb-1">
+                    <input
+                      type="checkbox"
+                      checked={selectedUserIds.size === 0}
+                      onChange={() => setSelectedUserIds(new Set())}
+                      className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                    />
+                    <span className="text-sm font-medium text-gray-700">-- Ingen tilldelning --</span>
+                  </label>
+                  
+                  {/* User options */}
                   {users.map(user => (
-                    <option key={user.id} value={user.id}>{user.full_name}</option>
+                    <label key={user.id} className="flex items-center gap-2 cursor-pointer hover:bg-blue-50 p-2 rounded">
+                      <input
+                        type="checkbox"
+                        checked={selectedUserIds.has(user.id)}
+                        onChange={(e) => {
+                          const newSet = new Set(selectedUserIds);
+                          if (e.target.checked) {
+                            newSet.add(user.id);
+                          } else {
+                            newSet.delete(user.id);
+                          }
+                          setSelectedUserIds(newSet);
+                        }}
+                        className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                      />
+                      <span className="text-sm text-gray-700">{user.full_name}</span>
+                    </label>
                   ))}
-                </select>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-4">
