@@ -244,6 +244,53 @@ export default function WarehouseAdminPage() {
     }
   };
 
+  const handleToggleTaskStatus = async (taskId: string, currentStatus: string) => {
+    try {
+      const newStatus =
+        currentStatus === 'pending'
+          ? 'in_progress'
+          : currentStatus === 'in_progress'
+            ? 'completed'
+            : 'pending';
+
+      // Get the task to check its type and booking_id
+      const task = tasks.find(t => t.id === taskId);
+      
+      const { error } = await supabase
+        .from('booking_tasks')
+        .update({ status: newStatus })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      // If this is a pickup or delivery task being marked as completed,
+      // also update the booking status to "completed" to trigger invoice creation
+      if (newStatus === 'completed' && task && (task.task_type === 'pickup' || task.task_type === 'delivery') && task.booking_id) {
+        try {
+          const { error: bookingError } = await supabase
+            .from('bookings')
+            .update({ status: 'completed' })
+            .eq('id', task.booking_id);
+          
+          if (bookingError) {
+            console.warn('Warning: Could not update booking status:', bookingError);
+          } else {
+            console.log('✅ Booking marked as completed, invoice task should be created by trigger');
+          }
+        } catch (err) {
+          console.warn('Error updating booking status:', err);
+        }
+      }
+
+      setMessage({ type: 'success', text: `Status ändrad till ${newStatus === 'pending' ? 'väntande' : newStatus === 'in_progress' ? 'pågåande' : 'slutförd'}` });
+      fetchData();
+      setTimeout(() => setMessage(null), 2000);
+    } catch (error) {
+      console.error('Error toggling task status:', error);
+      setMessage({ type: 'error', text: 'Kunde inte uppdatera status' });
+    }
+  };
+
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -705,8 +752,24 @@ export default function WarehouseAdminPage() {
                     </span>
                   </div>
 
+                  {/* Status */}
+                  <div className="md:col-span-1">
+                    <button
+                      onClick={() => handleToggleTaskStatus(task.id, task.status)}
+                      className={`w-full px-3 py-1 rounded text-xs font-semibold text-white transition ${
+                        task.status === 'pending' ? 'bg-red-500 hover:bg-red-600' :
+                        task.status === 'in_progress' ? 'bg-yellow-500 hover:bg-yellow-600' :
+                        'bg-green-500 hover:bg-green-600'
+                      }`}
+                    >
+                      {task.status === 'pending' ? '⏳ Väntande' :
+                       task.status === 'in_progress' ? '⚡ Pågåande' :
+                       '✅ Slutförd'}
+                    </button>
+                  </div>
+
                   {/* Assignment */}
-                  <div className="md:col-span-2">
+                  <div className="md:col-span-1">
                     {assigningTaskId === task.id ? (
                       <div className="space-y-2">
                         <div className="text-sm font-semibold text-gray-700 mb-2">Tilldela till (välj flera):</div>

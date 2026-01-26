@@ -132,12 +132,34 @@ export default function TODOPage() {
             ? 'completed'
             : 'pending';
 
+      // Get the task to check its type and booking_id
+      const task = tasks.find(t => t.id === taskId);
+      
       const { error } = await supabase
         .from('booking_tasks')
         .update({ status: newStatus })
         .eq('id', taskId);
 
       if (error) throw error;
+
+      // If this is a pickup or delivery task being marked as completed,
+      // also update the booking status to "completed" to trigger invoice creation
+      if (newStatus === 'completed' && task && (task.task_type === 'pickup' || task.task_type === 'delivery') && task.booking_id) {
+        try {
+          const { error: bookingError } = await supabase
+            .from('bookings')
+            .update({ status: 'completed' })
+            .eq('id', task.booking_id);
+          
+          if (bookingError) {
+            console.warn('Warning: Could not update booking status:', bookingError);
+          } else {
+            console.log('✅ Booking marked as completed, invoice task should be created by trigger');
+          }
+        } catch (err) {
+          console.warn('Error updating booking status:', err);
+        }
+      }
 
       setTasks((prev) =>
         prev.map((t) => (t.id === taskId ? { ...t, status: newStatus as any } : t))
