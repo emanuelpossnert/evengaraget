@@ -223,6 +223,7 @@ export default function BookingReviewPage() {
         updateData.delivery_postal_code = editForm.delivery_postal_code;
         updateData.delivery_city = editForm.delivery_city;
         updateData.delivery_type = editForm.delivery_type;
+        updateData.shipping_cost = editForm.shipping_cost || 0;
       } else if (section === "products") {
         // Convert products array to JSON string
         updateData.products_requested = JSON.stringify(editForm.products_requested || []);
