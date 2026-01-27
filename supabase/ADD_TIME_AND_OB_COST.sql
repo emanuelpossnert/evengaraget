@@ -77,4 +77,4 @@ ORDER BY ordinal_position;
 
 SELECT COUNT(*) as total_holidays
 FROM public.swedish_holidays
-WHERE YEAR(date) IN (2025, 2026);
+WHERE EXTRACT(YEAR FROM date) IN (2025, 2026);
