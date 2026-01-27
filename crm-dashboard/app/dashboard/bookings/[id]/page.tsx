@@ -42,10 +42,13 @@ interface BookingDetail {
   event_end_date?: string;
   delivery_date: string;
   pickup_date?: string;
+  delivery_time?: string;
+  pickup_time?: string;
   location: string;
   total_amount: number;
   tax_amount?: number;
   shipping_cost?: number;
+  ob_cost?: number;
   delivery_type?: string;
   products_requested: any;
   delivery_street_address?: string;
@@ -196,6 +199,8 @@ export default function BookingReviewPage() {
       if (section === "delivery") {
         updateData.delivery_date = editForm.delivery_date;
         updateData.pickup_date = editForm.pickup_date;
+        updateData.delivery_time = editForm.delivery_time;
+        updateData.pickup_time = editForm.pickup_time;
         updateData.delivery_street_address = editForm.delivery_street_address;
         updateData.delivery_postal_code = editForm.delivery_postal_code;
         updateData.delivery_city = editForm.delivery_city;
@@ -926,11 +931,31 @@ export default function BookingReviewPage() {
                 </div>
 
                 <div>
+                  <label className="block text-xs text-gray-600 mb-1">Leveranstid (HH:MM, valfritt)</label>
+                  <input
+                    type="time"
+                    value={editForm.delivery_time || ""}
+                    onChange={(e) => setEditForm({ ...editForm, delivery_time: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  />
+                </div>
+
+                <div>
                   <label className="block text-xs text-gray-600 mb-1">Returdatum 🔄 (Orange i kalender)</label>
                   <input
                     type="date"
                     value={editForm.pickup_date?.split("T")[0] || ""}
                     onChange={(e) => setEditForm({ ...editForm, pickup_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Upphämtningstid (HH:MM, valfritt)</label>
+                  <input
+                    type="time"
+                    value={editForm.pickup_time || ""}
+                    onChange={(e) => setEditForm({ ...editForm, pickup_time: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                   />
                 </div>
@@ -1001,10 +1026,12 @@ export default function BookingReviewPage() {
               <div className="space-y-2 text-sm">
                 <p>
                   <span className="text-gray-600">Leveransdatum 📦:</span> {format(new Date(booking.delivery_date), "d MMM yyyy", { locale: sv })}
+                  {booking.delivery_time && ` kl ${booking.delivery_time}`}
                 </p>
                 {booking.pickup_date && (
                   <p>
                     <span className="text-gray-600">Returdatum 🔄:</span> {format(new Date(booking.pickup_date), "d MMM yyyy", { locale: sv })}
+                    {booking.pickup_time && ` kl ${booking.pickup_time}`}
                   </p>
                 )}
                 <p>
@@ -1278,13 +1305,20 @@ export default function BookingReviewPage() {
                     <span className="font-semibold">{booking.shipping_cost?.toLocaleString("sv-SE")} SEK</span>
                   </div>
                 )}
+                {booking.ob_cost !== undefined && booking.ob_cost > 0 && (
+                  <div className="flex justify-between text-orange-600">
+                    <span className="font-semibold">OB-kostnad:</span>
+                    <span className="font-semibold">{booking.ob_cost?.toLocaleString("sv-SE")} SEK</span>
+                  </div>
+                )}
                 <div className="pt-2 border-t border-green-200 flex justify-between">
                   <span className="text-gray-700 font-bold">Totalt:</span>
                   <span className="text-xl font-bold text-green-700">
                     {(
                       (booking.total_amount || 0) +
                       (booking.tax_amount || 0) +
-                      (booking.shipping_cost || 0)
+                      (booking.shipping_cost || 0) +
+                      (booking.ob_cost || 0)
                     ).toLocaleString("sv-SE")} SEK
                   </span>
                 </div>
