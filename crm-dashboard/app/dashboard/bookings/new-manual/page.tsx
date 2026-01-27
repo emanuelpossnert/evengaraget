@@ -202,7 +202,18 @@ export default function NewManualBookingPage() {
 
     const pickup = new Date(formData.pickup_date);
     const delivery = new Date(formData.delivery_date);
+    
+    // Ensure delivery is after pickup
+    if (delivery < pickup) {
+      return { subtotal: 0, discount: 0, shipping: 0, ob: 0, tax: 0, total: 0, obReasons: [] };
+    }
+    
     const days = Math.ceil((delivery.getTime() - pickup.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    
+    // Ensure days is positive
+    if (days <= 0) {
+      return { subtotal: 0, discount: 0, shipping: 0, ob: 0, tax: 0, total: 0, obReasons: [] };
+    }
 
     let subtotal = 0;
     
@@ -220,6 +231,11 @@ export default function NewManualBookingPage() {
         });
       }
     });
+    
+    // Ensure subtotal is never negative (safety check)
+    if (subtotal < 0) {
+      subtotal = Math.abs(subtotal);
+    }
 
     // Calculate discount (10% if more than 2 products)
     const productCount = formData.products.length;
