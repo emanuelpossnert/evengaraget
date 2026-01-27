@@ -64,7 +64,7 @@ export interface Product {
   wrapping_cost?: number;
   image_url?: string;
   specifications?: Record<string, any>;
-  addons?: ProductAddon[]; // Addons associated with this product
+  addons?: Addon[]; // Addons associated with this product
   created_at: string;
   updated_at: string;
 }
