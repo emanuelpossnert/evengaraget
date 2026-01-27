@@ -715,7 +715,7 @@ export default function NewManualBookingPage() {
                 {/* Discount row */}
                 {totalPrice.discount > 0 && (
                   <div className="flex justify-between text-green-600">
-                    <span>Rabatt (10% för >2 produkter):</span>
+                    <span>Rabatt (10% för &gt;2 produkter):</span>
                     <span>-{totalPrice.discount.toLocaleString("sv-SE")} SEK</span>
                   </div>
                 )}
