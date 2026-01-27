@@ -88,23 +88,40 @@ export default function NewManualBookingPage() {
       const [customersRes, productsRes, addonsRes] = await Promise.all([
         supabase.from("customers").select("*").order("name"),
         supabase.from("products").select("id, name, base_price_per_day").order("name"),
-        supabase.from("addons").select("id, name, price, product_id").order("product_id"),
+        supabase.from("addons").select("id, name, price, product_id"), // Don't order by product_id if not all records have it
       ]);
 
       if (customersRes.error) throw customersRes.error;
       if (productsRes.error) throw productsRes.error;
+      // Don't throw if addonsRes has error - it might not exist yet
 
       setCustomers(customersRes.data || []);
       
-      // Attach addons to products
+      // Attach addons to products (handle case where addons table may not have product_id)
+      const addonsData = addonsRes.data || [];
       const productsWithAddons = (productsRes.data || []).map(product => ({
         ...product,
-        addons: (addonsRes.data || []).filter(addon => addon.product_id === product.id)
+        addons: addonsData.filter(addon => addon.product_id === product.id)
       }));
       
       setProducts(productsWithAddons);
     } catch (err) {
       console.error("Error fetching data:", err);
+      // Try fetching without addons if there's an error
+      try {
+        const [customersRes, productsRes] = await Promise.all([
+          supabase.from("customers").select("*").order("name"),
+          supabase.from("products").select("id, name, base_price_per_day").order("name"),
+        ]);
+        setCustomers(customersRes.data || []);
+        const productsWithAddons = (productsRes.data || []).map(product => ({
+          ...product,
+          addons: []
+        }));
+        setProducts(productsWithAddons);
+      } catch (innerErr) {
+        console.error("Error fetching products:", innerErr);
+      }
     }
   };
 
