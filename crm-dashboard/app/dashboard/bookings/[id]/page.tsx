@@ -110,6 +110,8 @@ export default function BookingReviewPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [allAddons, setAllAddons] = useState<any[]>([]);
 
   // Review state
   const [reviewMode, setReviewMode] = useState(true);
@@ -156,6 +158,22 @@ export default function BookingReviewPage() {
 
         if (customerData) setCustomer(customerData);
       }
+
+      // Fetch products
+      const { data: productsData } = await supabase
+        .from("products")
+        .select("id, name, base_price_per_day")
+        .order("name");
+      
+      if (productsData) setAllProducts(productsData);
+
+      // Fetch addons
+      const { data: addonsData } = await supabase
+        .from("addons")
+        .select("id, name, price, product_id")
+        .order("name");
+      
+      if (addonsData) setAllAddons(addonsData);
 
       // Fetch wrapping images
       const { data: imagesData } = await supabase
@@ -1101,17 +1119,34 @@ export default function BookingReviewPage() {
                         <div className="flex justify-between items-start gap-2">
                           <div className="flex-1">
                             <label className="block text-xs text-gray-500 mb-1">Produktnamn</label>
-                            <input
-                              type="text"
+                            <select
                               value={p.name}
                               onChange={(e) => {
+                                const selectedProduct = allProducts.find(prod => prod.name === e.target.value);
                                 const updated = [...products];
                                 updated[idx].name = e.target.value;
+                                updated[idx].id = selectedProduct?.id;
+                                
+                                // Auto-load addons for this product
+                                const productAddons = allAddons.filter(addon => addon.product_id === selectedProduct?.id);
+                                updated[idx].addons = productAddons.map(addon => ({
+                                  id: addon.id,
+                                  name: addon.name,
+                                  price: addon.price,
+                                  selected: false
+                                }));
+                                
                                 setEditForm({ ...editForm, products_requested: updated });
                               }}
                               className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                              placeholder="Produktnamn"
-                            />
+                            >
+                              <option value="">-- Välj produkt --</option>
+                              {allProducts.map(prod => (
+                                <option key={prod.id} value={prod.name}>
+                                  {prod.name}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                           <div className="w-24">
                             <label className="block text-xs text-gray-500 mb-1">Antal</label>
@@ -1172,7 +1207,7 @@ export default function BookingReviewPage() {
                 <div className="border-t border-gray-200 pt-3">
                   <button
                     onClick={() => {
-                      const updated = [...products, { name: '', quantity: 1, addons: [] }];
+                      const updated = [...products, { name: '', id: '', quantity: 1, addons: [] }];
                       setEditForm({ ...editForm, products_requested: updated });
                     }}
                     className="w-full px-3 py-2 bg-blue-100 text-blue-600 rounded text-sm font-semibold hover:bg-blue-200 flex items-center justify-center gap-1"
