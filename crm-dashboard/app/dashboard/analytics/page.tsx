@@ -67,10 +67,24 @@ export default function AnalyticsPage() {
   const [kpiData, setKpiData] = useState<KPI | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "products" | "customers" | "operational">("overview");
+  
+  // Date filter state
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
 
   useEffect(() => {
-    fetchAnalyticsData();
+    // Set default date range (last 12 months)
+    const today = new Date();
+    const oneYearAgo = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+    setEndDate(today.toISOString().split("T")[0]);
+    setStartDate(oneYearAgo.toISOString().split("T")[0]);
   }, []);
+
+  useEffect(() => {
+    if (startDate && endDate) {
+      fetchAnalyticsData();
+    }
+  }, [startDate, endDate]);
 
   const fetchAnalyticsData = async () => {
     try {
@@ -93,8 +107,14 @@ export default function AnalyticsPage() {
         return;
       }
 
+      // Filter by date range
+      const filteredBookings = bookingsData.filter((b) => {
+        const bookingDate = new Date(b.created_at);
+        return bookingDate >= new Date(startDate) && bookingDate <= new Date(endDate);
+      });
+
       // === FINANCIAL CALCULATIONS ===
-      const confirmedBookings = bookingsData.filter((b) => b.status === "confirmed" || b.status === "completed");
+      const confirmedBookings = filteredBookings.filter((b) => b.status === "confirmed" || b.status === "completed");
       const totalRevenue = confirmedBookings.reduce((sum, b) => sum + (b.total_amount || 0), 0);
       const totalBookings = confirmedBookings.length;
       const averageOrderValue = totalBookings > 0 ? totalRevenue / totalBookings : 0;
@@ -256,7 +276,7 @@ export default function AnalyticsPage() {
 
       // === BOOKING METRICS ===
       const statusCount: Record<string, number> = {};
-      bookingsData.forEach((b) => {
+      filteredBookings.forEach((b) => {
         statusCount[b.status] = (statusCount[b.status] || 0) + 1;
       });
 
@@ -274,7 +294,7 @@ export default function AnalyticsPage() {
         count,
       }));
 
-      const bookingCancellationRate = bookingsData.length > 0 ? ((statusCount["cancelled"] || 0) / bookingsData.length) * 100 : 0;
+      const bookingCancellationRate = filteredBookings.length > 0 ? ((statusCount["cancelled"] || 0) / filteredBookings.length) * 100 : 0;
       const completionRate = totalBookings > 0 ? ((confirmedBookings.filter((b) => b.status === "completed").length / confirmedBookings.length) * 100) : 0;
 
       // Average event duration
@@ -419,6 +439,33 @@ export default function AnalyticsPage() {
           <Download size={20} />
           Exportera som PDF
         </button>
+      </div>
+
+      {/* Date Filter */}
+      <div className="flex items-center gap-4 bg-white rounded-lg p-4 border border-gray-200">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Från datum</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Till datum</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+          />
+        </div>
+        <div className="pt-6">
+          <p className="text-xs text-gray-500">
+            {startDate && endDate && `Visar data från ${new Date(startDate).toLocaleDateString('sv-SE')} till ${new Date(endDate).toLocaleDateString('sv-SE')}`}
+          </p>
+        </div>
       </div>
 
       {/* Tab Navigation */}
