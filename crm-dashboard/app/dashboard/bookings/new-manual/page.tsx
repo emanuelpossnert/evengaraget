@@ -57,6 +57,7 @@ export default function NewManualBookingPage() {
     delivery_instructions: "",
     internal_notes: "",
     customer_notes: "",
+    shipping_cost: 0, // For external delivery
     products: [] as FormProduct[],
   });
 
@@ -194,7 +195,7 @@ export default function NewManualBookingPage() {
   };
 
   const calculateTotalPrice = () => {
-    if (!formData.pickup_date || !formData.delivery_date) return { subtotal: 0, tax: 0, total: 0 };
+    if (!formData.pickup_date || !formData.delivery_date) return { subtotal: 0, discount: 0, shipping: 0, tax: 0, total: 0 };
 
     const pickup = new Date(formData.pickup_date);
     const delivery = new Date(formData.delivery_date);
@@ -211,17 +212,30 @@ export default function NewManualBookingPage() {
       if (p.addons && Array.isArray(p.addons)) {
         p.addons.forEach((addon: any) => {
           if (addon.selected) {
-            subtotal += (addon.price || 0) * days; // Addons multiply by days too
+            subtotal += (addon.price || 0) * days;
           }
         });
       }
     });
 
-    const taxRate = 0.25; // 25% Swedish VAT
-    const tax = Math.round(subtotal * taxRate * 100) / 100;
-    const total = Math.round((subtotal + tax) * 100) / 100;
+    // Calculate discount (10% if more than 2 products)
+    const productCount = formData.products.length;
+    const discount = productCount > 2 ? Math.round(subtotal * 0.1 * 100) / 100 : 0;
+    
+    // Subtotal after discount
+    const subtotalAfterDiscount = Math.round((subtotal - discount) * 100) / 100;
 
-    return { subtotal, tax, total };
+    // Add shipping cost
+    const shippingCost = formData.delivery_type === "external" ? (formData.shipping_cost || 0) : 0;
+    
+    // Add shipping to subtotal (before tax)
+    const subtotalWithShipping = Math.round((subtotalAfterDiscount + shippingCost) * 100) / 100;
+
+    const taxRate = 0.25; // 25% Swedish VAT
+    const tax = Math.round(subtotalWithShipping * taxRate * 100) / 100;
+    const total = Math.round((subtotalWithShipping + tax) * 100) / 100;
+
+    return { subtotal, discount, shipping: shippingCost, tax, total };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -271,6 +285,7 @@ export default function NewManualBookingPage() {
             internal_notes: formData.internal_notes,
             customer_notes: formData.customer_notes,
             products_requested: JSON.stringify(formData.products),
+            shipping_cost: pricing.shipping,
             total_amount: pricing.total,
             total_estimated_price: pricing.total,
             status: "pending",
@@ -453,6 +468,33 @@ export default function NewManualBookingPage() {
                 <option value="customer_pickup">Customer Pickup</option>
               </select>
             </div>
+
+            {/* Show shipping cost input only for external delivery */}
+            {formData.delivery_type === "external" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Fraktkostnad (Obligatorisk för extern frakt) *
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    value={formData.shipping_cost || 0}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        shipping_cost: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    placeholder="T.ex. 500"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                  />
+                  <span className="text-gray-600 font-medium">SEK</span>
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Leverans-adress
@@ -669,6 +711,23 @@ export default function NewManualBookingPage() {
                   <span>Summa (ex. moms):</span>
                   <span className="font-medium">{totalPrice.subtotal.toLocaleString("sv-SE")} SEK</span>
                 </div>
+                
+                {/* Discount row */}
+                {totalPrice.discount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Rabatt (10% för >2 produkter):</span>
+                    <span>-{totalPrice.discount.toLocaleString("sv-SE")} SEK</span>
+                  </div>
+                )}
+                
+                {/* Shipping row */}
+                {totalPrice.shipping > 0 && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>Fraktkostnad:</span>
+                    <span>+{totalPrice.shipping.toLocaleString("sv-SE")} SEK</span>
+                  </div>
+                )}
+                
                 <div className="flex justify-between text-gray-600">
                   <span>Moms (25%):</span>
                   <span>{totalPrice.tax.toLocaleString("sv-SE")} SEK</span>
