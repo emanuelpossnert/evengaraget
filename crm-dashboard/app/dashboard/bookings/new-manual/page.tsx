@@ -46,7 +46,9 @@ export default function NewManualBookingPage() {
   const [formData, setFormData] = useState({
     customer_id: "",
     pickup_date: "",
+    pickup_time: "", // HH:MM format
     delivery_date: "",
+    delivery_time: "", // HH:MM format
     event_date: "",
     event_end_date: "",
     location: "",
@@ -273,7 +275,9 @@ export default function NewManualBookingPage() {
             customer_id: formData.customer_id,
             booking_number: bookingNumber,
             pickup_date: formData.pickup_date,
+            pickup_time: formData.pickup_time || null,
             delivery_date: formData.delivery_date,
+            delivery_time: formData.delivery_time || null,
             event_date: formData.event_date || formData.pickup_date,
             event_end_date: formData.event_end_date || formData.delivery_date,
             location: formData.location,
@@ -392,6 +396,19 @@ export default function NewManualBookingPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
+                Upphämtningstid
+              </label>
+              <input
+                type="time"
+                value={formData.pickup_time}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, pickup_time: e.target.value }))
+                }
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Leveransdatum *
               </label>
               <input
@@ -401,6 +418,19 @@ export default function NewManualBookingPage() {
                   setFormData((prev) => ({ ...prev, delivery_date: e.target.value }))
                 }
                 required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Leveranstid
+              </label>
+              <input
+                type="time"
+                value={formData.delivery_time}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, delivery_time: e.target.value }))
+                }
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
               />
             </div>
