@@ -75,6 +75,7 @@ export default function QuotationPage() {
   const [selectedAddons, setSelectedAddons] = useState<Map<string, {quantity: number, price: number, name: string}>>(new Map());
   const [selectedWrapping, setSelectedWrapping] = useState<Map<string, boolean>>(new Map());
   const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [deliveryOption, setDeliveryOption] = useState<string>(""); // delivery_type från booking
 
   useEffect(() => {
     if (!token) return;
@@ -107,7 +108,7 @@ export default function QuotationPage() {
       const q = quotations[0];
 
       const bRes = await fetch(
-        `${url}/rest/v1/bookings?id=eq.${q.booking_id}&select=id,products_requested,event_date,event_end_date,location,delivery_street_address,delivery_postal_code,delivery_city,total_amount,pickup_date,pickup_time,delivery_date,delivery_time,ob_cost`,
+        `${url}/rest/v1/bookings?id=eq.${q.booking_id}&select=id,products_requested,event_date,event_end_date,location,delivery_street_address,delivery_postal_code,delivery_city,total_amount,pickup_date,pickup_time,delivery_date,delivery_time,ob_cost,delivery_type,shipping_cost`,
         { 
           method: 'GET',
           headers: { 
@@ -217,6 +218,7 @@ export default function QuotationPage() {
       }
 
       setData({ ...q, booking, customer, addons: addonsData || [] });
+      setDeliveryOption(booking?.delivery_type || "internal");
     } catch (err: any) {
       console.error('Error:', err);
       setError(err.message || 'Kunde inte ladda offerten');
@@ -498,6 +500,55 @@ export default function QuotationPage() {
                 </label>
               );
             }) : <p className="text-gray-600">Inga tillägg tillgängliga</p>}
+          </div>
+
+          {/* DELIVERY OPTION */}
+          <h3 className="font-semibold mb-3 text-lg">🚚 LEVERANSSÄTT</h3>
+          <div className="space-y-2 mb-6 bg-blue-50 p-4 rounded">
+            <label className="flex items-center space-x-3 cursor-pointer p-3 rounded border-2 border-blue-200 bg-white hover:border-blue-500 transition">
+              <input 
+                type="radio"
+                name="delivery"
+                value="internal"
+                checked={deliveryOption === "internal"}
+                onChange={(e) => setDeliveryOption(e.target.value)}
+                className="w-5 h-5 text-blue-600"
+              />
+              <div className="flex-1">
+                <p className="font-semibold text-sm">✅ EventGaraget levererar</p>
+                <p className="text-xs text-gray-600">Vi hanterar leveransen inom Stockholm-området</p>
+              </div>
+            </label>
+
+            <label className="flex items-center space-x-3 cursor-pointer p-3 rounded border-2 border-blue-200 bg-white hover:border-blue-500 transition">
+              <input 
+                type="radio"
+                name="delivery"
+                value="external"
+                checked={deliveryOption === "external"}
+                onChange={(e) => setDeliveryOption(e.target.value)}
+                className="w-5 h-5 text-blue-600"
+              />
+              <div className="flex-1">
+                <p className="font-semibold text-sm">📦 Extern frakt</p>
+                <p className="text-xs text-gray-600">Fraktpartner hanterar leveransen</p>
+              </div>
+            </label>
+
+            <label className="flex items-center space-x-3 cursor-pointer p-3 rounded border-2 border-blue-200 bg-white hover:border-blue-500 transition">
+              <input 
+                type="radio"
+                name="delivery"
+                value="pickup"
+                checked={deliveryOption === "pickup"}
+                onChange={(e) => setDeliveryOption(e.target.value)}
+                className="w-5 h-5 text-blue-600"
+              />
+              <div className="flex-1">
+                <p className="font-semibold text-sm">🚗 Jag hämtar upp själv</p>
+                <p className="text-xs text-gray-600">Jag hämtar produkterna på lagret</p>
+              </div>
+            </label>
           </div>
 
           {/* PRICE SUMMARY */}
