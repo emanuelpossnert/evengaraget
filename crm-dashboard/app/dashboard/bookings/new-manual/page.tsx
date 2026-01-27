@@ -177,21 +177,34 @@ export default function NewManualBookingPage() {
   };
 
   const calculateTotalPrice = () => {
-    if (!formData.pickup_date || !formData.delivery_date) return 0;
+    if (!formData.pickup_date || !formData.delivery_date) return { subtotal: 0, tax: 0, total: 0 };
 
     const pickup = new Date(formData.pickup_date);
     const delivery = new Date(formData.delivery_date);
     const days = Math.ceil((delivery.getTime() - pickup.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-    let total = 0;
+    let subtotal = 0;
+    
+    // Calculate products
     formData.products.forEach((p) => {
-      const product = products.find((pr) => pr.name === p.name);
-      if (product) {
-        total += product.base_price_per_day * p.quantity * days;
+      const pricePerDay = p.price_per_day || 0;
+      subtotal += pricePerDay * p.quantity * days;
+      
+      // Add selected addons
+      if (p.addons && Array.isArray(p.addons)) {
+        p.addons.forEach((addon: any) => {
+          if (addon.selected) {
+            subtotal += (addon.price || 0) * days; // Addons multiply by days too
+          }
+        });
       }
     });
 
-    return total;
+    const taxRate = 0.25; // 25% Swedish VAT
+    const tax = Math.round(subtotal * taxRate * 100) / 100;
+    const total = Math.round((subtotal + tax) * 100) / 100;
+
+    return { subtotal, tax, total };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -220,7 +233,7 @@ export default function NewManualBookingPage() {
       setLoading(true);
 
       const bookingNumber = `BK-${Date.now()}`;
-      const totalAmount = calculateTotalPrice();
+      const pricing = calculateTotalPrice();
 
       const { data, error: insertError } = await supabase
         .from("bookings")
@@ -241,8 +254,8 @@ export default function NewManualBookingPage() {
             internal_notes: formData.internal_notes,
             customer_notes: formData.customer_notes,
             products_requested: JSON.stringify(formData.products),
-            total_amount: totalAmount,
-            total_estimated_price: totalAmount,
+            total_amount: pricing.total,
+            total_estimated_price: pricing.total,
             status: "pending",
             requires_delivery: formData.delivery_type === "external",
             requires_setup: false,
@@ -631,13 +644,24 @@ export default function NewManualBookingPage() {
 
         {/* Summary */}
         <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-lg p-6 border border-red-200">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-sm text-gray-600">Totalt belopp</p>
-              <p className="text-3xl font-bold text-gray-900">
-                {totalPrice.toLocaleString("sv-SE")} SEK
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <p className="text-sm text-gray-600 mb-2">Prissammanfattning</p>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span>Summa (ex. moms):</span>
+                  <span className="font-medium">{totalPrice.subtotal.toLocaleString("sv-SE")} SEK</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Moms (25%):</span>
+                  <span>{totalPrice.tax.toLocaleString("sv-SE")} SEK</span>
+                </div>
+                <div className="border-t border-red-200 pt-1 mt-1 flex justify-between">
+                  <span className="font-semibold">Totalt (ink. moms):</span>
+                  <span className="text-lg font-bold text-red-600">{totalPrice.total.toLocaleString("sv-SE")} SEK</span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
                 för {Math.ceil((new Date(formData.delivery_date).getTime() - new Date(formData.pickup_date).getTime()) / (1000 * 60 * 60 * 24)) + 1 || 0} dagar
               </p>
             </div>
