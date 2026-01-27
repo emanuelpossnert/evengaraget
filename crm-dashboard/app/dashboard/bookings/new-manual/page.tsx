@@ -150,7 +150,7 @@ export default function NewManualBookingPage() {
           name: newProductName,
           quantity: newProductQty,
           wrapping_requested: false,
-          addons: selectedProduct.addons?.map((addon: any) => ({ ...addon, selected: false })) || [],
+          addons: (selectedProduct as any).addons?.map((addon: any) => ({ ...addon, selected: false })) || [],
           price_per_day: selectedProduct.base_price_per_day,
         },
       ],
