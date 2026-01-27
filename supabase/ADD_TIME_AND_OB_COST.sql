@@ -63,6 +63,7 @@ CREATE INDEX IF NOT EXISTS idx_swedish_holidays_date ON public.swedish_holidays(
 
 -- 5. Enable RLS on holidays table
 ALTER TABLE public.swedish_holidays ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow read access to swedish_holidays" ON public.swedish_holidays;
 CREATE POLICY "Allow read access to swedish_holidays" ON public.swedish_holidays
   FOR SELECT USING (true);
 

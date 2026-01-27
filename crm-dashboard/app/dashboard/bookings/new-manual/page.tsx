@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
+import { calculateOBCost, getOBReason } from "@/lib/ob-utils";
 
 interface Customer {
   id: string;
@@ -230,8 +231,7 @@ export default function NewManualBookingPage() {
     // Add shipping cost
     const shippingCost = formData.delivery_type === "external" ? (formData.shipping_cost || 0) : 0;
     
-    // Import OB calculation
-    const { calculateOBCost, getOBReason } = require('@/lib/ob-utils');
+    // Calculate OB cost (already imported at top)
     const obCost = calculateOBCost(formData.pickup_date, formData.pickup_time, formData.delivery_date, formData.delivery_time);
     const obReasons = getOBReason(formData.pickup_date, formData.pickup_time, formData.delivery_date, formData.delivery_time);
     
@@ -785,6 +785,14 @@ export default function NewManualBookingPage() {
                   <span className="font-semibold">Totalt (ink. moms):</span>
                   <span className="text-lg font-bold text-red-600">{totalPrice.total.toLocaleString("sv-SE")} SEK</span>
                 </div>
+                
+                {/* Shipping cost at bottom */}
+                {totalPrice.shipping > 0 && (
+                  <div className="mt-2 pt-2 border-t border-red-200 flex justify-between text-gray-600 text-xs">
+                    <span>Fraktkostnad (ingår ovan):</span>
+                    <span>{totalPrice.shipping.toLocaleString("sv-SE")} SEK</span>
+                  </div>
+                )}
               </div>
               <p className="text-xs text-gray-500 mt-2">
                 för {Math.ceil((new Date(formData.delivery_date).getTime() - new Date(formData.pickup_date).getTime()) / (1000 * 60 * 60 * 24)) + 1 || 0} dagar
