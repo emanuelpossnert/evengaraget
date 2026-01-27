@@ -197,7 +197,7 @@ export default function NewManualBookingPage() {
   };
 
   const calculateTotalPrice = () => {
-    if (!formData.pickup_date || !formData.delivery_date) return { subtotal: 0, discount: 0, shipping: 0, tax: 0, total: 0 };
+    if (!formData.pickup_date || !formData.delivery_date) return { subtotal: 0, discount: 0, shipping: 0, ob: 0, tax: 0, total: 0, obReasons: [] };
 
     const pickup = new Date(formData.pickup_date);
     const delivery = new Date(formData.delivery_date);
@@ -230,14 +230,19 @@ export default function NewManualBookingPage() {
     // Add shipping cost
     const shippingCost = formData.delivery_type === "external" ? (formData.shipping_cost || 0) : 0;
     
-    // Add shipping to subtotal (before tax)
-    const subtotalWithShipping = Math.round((subtotalAfterDiscount + shippingCost) * 100) / 100;
+    // Import OB calculation
+    const { calculateOBCost, getOBReason } = require('@/lib/ob-utils');
+    const obCost = calculateOBCost(formData.pickup_date, formData.pickup_time, formData.delivery_date, formData.delivery_time);
+    const obReasons = getOBReason(formData.pickup_date, formData.pickup_time, formData.delivery_date, formData.delivery_time);
+    
+    // Add shipping and OB to subtotal (before tax)
+    const subtotalWithShippingAndOB = Math.round((subtotalAfterDiscount + shippingCost + obCost) * 100) / 100;
 
     const taxRate = 0.25; // 25% Swedish VAT
-    const tax = Math.round(subtotalWithShipping * taxRate * 100) / 100;
-    const total = Math.round((subtotalWithShipping + tax) * 100) / 100;
+    const tax = Math.round(subtotalWithShippingAndOB * taxRate * 100) / 100;
+    const total = Math.round((subtotalWithShippingAndOB + tax) * 100) / 100;
 
-    return { subtotal, discount, shipping: shippingCost, tax, total };
+    return { subtotal, discount, shipping: shippingCost, ob: obCost, tax, total, obReasons };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -290,6 +295,7 @@ export default function NewManualBookingPage() {
             customer_notes: formData.customer_notes,
             products_requested: JSON.stringify(formData.products),
             shipping_cost: pricing.shipping,
+            ob_cost: pricing.ob,
             total_amount: pricing.total,
             total_estimated_price: pricing.total,
             status: "pending",
@@ -755,6 +761,19 @@ export default function NewManualBookingPage() {
                   <div className="flex justify-between text-gray-600">
                     <span>Fraktkostnad:</span>
                     <span>+{totalPrice.shipping.toLocaleString("sv-SE")} SEK</span>
+                  </div>
+                )}
+                
+                {/* OB Cost row */}
+                {totalPrice.ob > 0 && (
+                  <div className="flex justify-between text-orange-600">
+                    <div className="flex flex-col">
+                      <span>OB-kostnad (1500 SEK):</span>
+                      <span className="text-xs text-gray-500 font-normal">
+                        {totalPrice.obReasons?.join(", ") || "Kvällsleverans/helg"}
+                      </span>
+                    </div>
+                    <span>+{totalPrice.ob.toLocaleString("sv-SE")} SEK</span>
                   </div>
                 )}
                 
