@@ -1017,13 +1017,31 @@ export default function BookingReviewPage() {
                   >
                     <option value="internal">✅ INTERN - EventGaraget levererar (Stockholm)</option>
                     <option value="external">📦 EXTERN - Fraktpartner levererar</option>
+                    <option value="pickup">🚗 UPPHÄMTNING - Kunden hämtar upp själv</option>
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
                     {editForm.delivery_type === "internal" 
                       ? "EventGaraget hanterar leveransen inom Stockholm-området." 
-                      : "En extern fraktpartner kommer att hantera leveransen."}
+                      : editForm.delivery_type === "external"
+                      ? "En extern fraktpartner kommer att hantera leveransen."
+                      : "Kunden hämtar upp produkterna själv."}
                   </p>
                 </div>
+
+                {editForm.delivery_type === "external" && (
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Fraktkostnad (SEK)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={editForm.shipping_cost || ""}
+                      onChange={(e) => setEditForm({ ...editForm, shipping_cost: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                      placeholder="T.ex. 500"
+                    />
+                  </div>
+                )}
+
                 <div className="flex gap-2 pt-2">
                   <button
                     onClick={() => handleSaveEdit("delivery")}
@@ -1077,12 +1095,24 @@ export default function BookingReviewPage() {
                       </span>
                       <span className="text-gray-600 text-xs">EventGaraget levererar (Stockholm)</span>
                     </div>
+                  ) : booking.delivery_type === "external" ? (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="inline-block px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold">
+                          📦 EXTERN
+                        </span>
+                        <span className="text-gray-600 text-xs">Fraktpartner levererar</span>
+                      </div>
+                      {booking.shipping_cost && booking.shipping_cost > 0 && (
+                        <p className="text-xs text-gray-600">Fraktkostnad: <span className="font-semibold">{booking.shipping_cost?.toLocaleString("sv-SE")} SEK</span></p>
+                      )}
+                    </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="inline-block px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold">
-                        📦 EXTERN
+                      <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold">
+                        🚗 UPPHÄMTNING
                       </span>
-                      <span className="text-gray-600 text-xs">Fraktpartner levererar</span>
+                      <span className="text-gray-600 text-xs">Kunden hämtar upp själv</span>
                     </div>
                   )}
                 </div>
