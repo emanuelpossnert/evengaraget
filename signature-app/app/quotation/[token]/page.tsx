@@ -3,6 +3,65 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
+// OB-kostnad beräkning
+const SWEDISH_HOLIDAYS_2025_2026 = [
+  // 2025
+  '2025-01-01', '2025-01-06', '2025-04-18', '2025-04-20', '2025-04-21',
+  '2025-05-01', '2025-05-09', '2025-05-19', '2025-06-06', '2025-06-21',
+  '2025-11-01', '2025-12-24', '2025-12-25', '2025-12-26', '2025-12-31',
+  // 2026
+  '2026-01-01', '2026-01-06', '2026-04-03', '2026-04-05', '2026-04-06',
+  '2026-05-01', '2026-05-14', '2026-05-24', '2026-06-06', '2026-06-20',
+  '2026-11-01', '2026-12-24', '2026-12-25', '2026-12-26', '2026-12-31',
+];
+
+function isSwedishHoliday(dateString: string): boolean {
+  const parts = dateString.split('-');
+  if (parts.length >= 3) {
+    const formattedDate = `${parts[0]}-${parts[1]}-${parts[2]}`;
+    return SWEDISH_HOLIDAYS_2025_2026.includes(formattedDate);
+  }
+  return false;
+}
+
+function isOBHour(timeString: string): boolean {
+  if (!timeString) return false;
+  const [hours, minutes] = timeString.split(':').map(Number);
+  const totalMinutes = hours * 60 + minutes;
+  return totalMinutes >= 18 * 60 || totalMinutes < 7 * 60;
+}
+
+function isWeekend(dateString: string): boolean {
+  const date = new Date(dateString + 'T00:00:00');
+  const dayOfWeek = date.getDay();
+  return dayOfWeek === 0 || dayOfWeek === 6;
+}
+
+function calculateOBCost(
+  pickupDate: string,
+  pickupTime: string,
+  deliveryDate: string,
+  deliveryTime: string
+): number {
+  if (
+    (pickupTime && isOBHour(pickupTime)) ||
+    isWeekend(pickupDate) ||
+    isSwedishHoliday(pickupDate)
+  ) {
+    return 1500;
+  }
+
+  if (
+    (deliveryTime && isOBHour(deliveryTime)) ||
+    isWeekend(deliveryDate) ||
+    isSwedishHoliday(deliveryDate)
+  ) {
+    return 1500;
+  }
+
+  return 0;
+}
+
 export default function QuotationPage() {
   const params = useParams();
   const router = useRouter();
@@ -48,7 +107,7 @@ export default function QuotationPage() {
       const q = quotations[0];
 
       const bRes = await fetch(
-        `${url}/rest/v1/bookings?id=eq.${q.booking_id}&select=id,products_requested,event_date,event_end_date,location,delivery_street_address,delivery_postal_code,delivery_city,total_amount`,
+        `${url}/rest/v1/bookings?id=eq.${q.booking_id}&select=id,products_requested,event_date,event_end_date,location,delivery_street_address,delivery_postal_code,delivery_city,total_amount,pickup_date,pickup_time,delivery_date,delivery_time,ob_cost`,
         { 
           method: 'GET',
           headers: { 
@@ -217,11 +276,22 @@ export default function QuotationPage() {
   // ✅ ALL SUBTOTAL (products + addons + wrapping) BEFORE TAX
   const allSubtotal = productSubtotal + selectedAddonsTotal + selectedWrappingTotal;
   
-  // ✅ TAX ON EVERYTHING (25%)
-  const allTax = Math.round(allSubtotal * 0.25 * 100) / 100;
+  // Calculate OB cost
+  const obCost = calculateOBCost(
+    data.booking?.pickup_date || '',
+    data.booking?.pickup_time || '',
+    data.booking?.delivery_date || '',
+    data.booking?.delivery_time || ''
+  );
   
-  // ✅ GRAND TOTAL = Subtotal + Tax
-  const grandTotal = allSubtotal + allTax;
+  // ✅ SUBTOTAL WITH OB (products + addons + wrapping + OB) BEFORE TAX
+  const subtotalWithOB = allSubtotal + obCost;
+  
+  // ✅ TAX ON EVERYTHING (25%)
+  const allTax = Math.round(subtotalWithOB * 0.25 * 100) / 100;
+  
+  // ✅ GRAND TOTAL = Subtotal + OB + Tax
+  const grandTotal = subtotalWithOB + allTax;
 
   const toggleAddon = (addonId: string, addon: any) => {
     const newSelected = new Map(selectedAddons);
@@ -268,6 +338,8 @@ export default function QuotationPage() {
         selectedAddonsTotal,
         selectedWrappingTotal,
         allSubtotal,
+        obCost,
+        subtotalWithOB,
         tax: allTax,
         grandTotal,
       });
@@ -304,6 +376,7 @@ export default function QuotationPage() {
           },
           body: JSON.stringify({
             total_amount: grandTotal,
+            ob_cost: obCost,
           }),
         }
       );
@@ -360,7 +433,8 @@ export default function QuotationPage() {
               <p className="text-sm"><strong>Plats:</strong> {data.booking?.location || 'N/A'}</p>
               <p className="text-sm"><strong>Start:</strong> {data.booking?.event_date ? new Date(data.booking.event_date).toLocaleDateString('sv-SE') : 'N/A'}</p>
               <p className="text-sm"><strong>Slut:</strong> {data.booking?.event_end_date ? new Date(data.booking.event_end_date).toLocaleDateString('sv-SE') : 'N/A'}</p>
-              <p className="text-sm mt-2"><strong>Leverans:</strong> {data.booking?.delivery_street_address || data.booking?.location || 'Se ovan'}</p>
+              <p className="text-sm mt-2"><strong>Leverans:</strong> {data.booking?.delivery_date ? new Date(data.booking.delivery_date).toLocaleDateString('sv-SE') : 'N/A'} {data.booking?.delivery_time && `kl ${data.booking.delivery_time}`}</p>
+              <p className="text-sm"><strong>Upphämtning:</strong> {data.booking?.pickup_date ? new Date(data.booking.pickup_date).toLocaleDateString('sv-SE') : 'N/A'} {data.booking?.pickup_time && `kl ${data.booking.pickup_time}`}</p>
             </div>
           </div>
 
@@ -447,9 +521,16 @@ export default function QuotationPage() {
               </div>
             )}
 
+            {obCost > 0 && (
+              <div className="flex justify-between text-sm text-orange-600 border-t pt-2">
+                <span>OB-kostnad (18:00-07:00, helg, helgdag):</span>
+                <span className="font-semibold">{obCost.toFixed(2)} SEK</span>
+              </div>
+            )}
+
             <div className="flex justify-between text-sm border-t pt-2">
               <span className="font-semibold">Subtotal (före moms):</span>
-              <span className="font-bold">{allSubtotal.toFixed(2)} SEK</span>
+              <span className="font-bold">{subtotalWithOB.toFixed(2)} SEK</span>
             </div>
 
             <div className="flex justify-between text-sm text-green-600 border-t pt-2">
