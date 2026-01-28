@@ -278,6 +278,12 @@ export default function QuotationPage() {
   // ✅ ALL SUBTOTAL (products + addons + wrapping) BEFORE TAX
   const allSubtotal = productSubtotal + selectedAddonsTotal + selectedWrappingTotal;
   
+  // Calculate shipping discount (10% if > 2 products, for external delivery only)
+  const productCount = productsWithDetails.length;
+  let shippingCost = (data.booking?.shipping_cost || 0);
+  const shippingDiscount = deliveryOption === "external" && productCount > 2 ? Math.round(shippingCost * 0.1 * 100) / 100 : 0;
+  shippingCost = Math.round((shippingCost - shippingDiscount) * 100) / 100;
+  
   // Calculate OB cost
   const obCost = calculateOBCost(
     data.booking?.pickup_date || '',
@@ -286,14 +292,14 @@ export default function QuotationPage() {
     data.booking?.delivery_time || ''
   );
   
-  // ✅ SUBTOTAL WITH OB (products + addons + wrapping + OB) BEFORE TAX
-  const subtotalWithOB = allSubtotal + obCost;
+  // ✅ SUBTOTAL WITH SHIPPING, DISCOUNT, OB (products + addons + wrapping + shipping + OB) BEFORE TAX
+  const subtotalWithShippingAndOB = allSubtotal + shippingCost + obCost;
   
   // ✅ TAX ON EVERYTHING (25%)
-  const allTax = Math.round(subtotalWithOB * 0.25 * 100) / 100;
+  const allTax = Math.round(subtotalWithShippingAndOB * 0.25 * 100) / 100;
   
-  // ✅ GRAND TOTAL = Subtotal + OB + Tax
-  const grandTotal = subtotalWithOB + allTax;
+  // ✅ GRAND TOTAL = Subtotal + Shipping + OB + Tax
+  const grandTotal = subtotalWithShippingAndOB + allTax;
 
   const toggleAddon = (addonId: string, addon: any) => {
     const newSelected = new Map(selectedAddons);
