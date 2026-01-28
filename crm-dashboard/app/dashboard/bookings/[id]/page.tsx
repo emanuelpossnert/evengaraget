@@ -1366,10 +1366,27 @@ export default function BookingReviewPage() {
                   </div>
                 )}
                 {booking.shipping_cost !== undefined && booking.shipping_cost > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Frakt:</span>
-                    <span className="font-semibold">{booking.shipping_cost?.toLocaleString("sv-SE")} SEK</span>
-                  </div>
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Frakt (före rabatt):</span>
+                      <span className="font-semibold">
+                        {(booking.shipping_cost + (
+                          booking.products_requested && 
+                          JSON.parse(booking.products_requested).length > 2
+                            ? Math.round(booking.shipping_cost * 0.1 * 100) / 100 
+                            : 0
+                        )).toLocaleString("sv-SE")} SEK
+                      </span>
+                    </div>
+                    {booking.products_requested && JSON.parse(booking.products_requested).length > 2 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Fraktrabatt (10%):</span>
+                        <span className="font-semibold">
+                          -{Math.round(booking.shipping_cost * 0.1 * 100) / 100} SEK
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
                 {booking.ob_cost !== undefined && booking.ob_cost > 0 && (
                   <div className="flex justify-between text-orange-600">
@@ -1383,7 +1400,11 @@ export default function BookingReviewPage() {
                     {(
                       (booking.total_amount || 0) +
                       (booking.tax_amount || 0) +
-                      (booking.shipping_cost || 0) +
+                      (booking.shipping_cost || 0) -
+                      (booking.products_requested && 
+                       JSON.parse(booking.products_requested).length > 2
+                        ? Math.round((booking.shipping_cost || 0) * 0.1 * 100) / 100 
+                        : 0) +
                       (booking.ob_cost || 0)
                     ).toLocaleString("sv-SE")} SEK
                   </span>
