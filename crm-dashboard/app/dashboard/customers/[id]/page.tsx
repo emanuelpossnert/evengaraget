@@ -1083,9 +1083,9 @@ export default function CustomerCRMPage() {
 
       {/* MESSAGES/EMAIL TAB */}
       {activeTab === "messages" && (
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-x-auto">
           {/* Send Email Form */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 min-w-full">
             <h2 className="text-lg font-bold text-gray-900 mb-4">📧 Skicka E-post</h2>
             <div className="space-y-3">
               <div>
