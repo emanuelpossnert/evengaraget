@@ -578,6 +578,20 @@ export default function QuotationPage() {
               </div>
             )}
 
+            {shippingCost > 0 && (
+              <div className="flex justify-between text-sm text-blue-600">
+                <span>Fraktkostnad:</span>
+                <span className="font-semibold">{(shippingCost + shippingDiscount).toFixed(2)} SEK</span>
+              </div>
+            )}
+
+            {shippingDiscount > 0 && (
+              <div className="flex justify-between text-sm text-green-600">
+                <span>Fraktrabatt (10%):</span>
+                <span className="font-semibold">-{shippingDiscount.toFixed(2)} SEK</span>
+              </div>
+            )}
+
             {obCost > 0 && (
               <div className="flex justify-between text-sm text-orange-600 border-t pt-2">
                 <span>OB-kostnad (18:00-07:00, helg, helgdag):</span>
@@ -587,7 +601,7 @@ export default function QuotationPage() {
 
             <div className="flex justify-between text-sm border-t pt-2">
               <span className="font-semibold">Subtotal (före moms):</span>
-              <span className="font-bold">{subtotalWithOB.toFixed(2)} SEK</span>
+              <span className="font-bold">{subtotalWithShippingAndOB.toFixed(2)} SEK</span>
             </div>
 
             <div className="flex justify-between text-sm text-green-600 border-t pt-2">
