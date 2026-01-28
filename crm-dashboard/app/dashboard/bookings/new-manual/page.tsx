@@ -244,8 +244,10 @@ export default function NewManualBookingPage() {
     // Subtotal after discount
     const subtotalAfterDiscount = Math.round((subtotal - discount) * 100) / 100;
 
-    // Add shipping cost
-    const shippingCost = formData.delivery_type === "external" ? (formData.shipping_cost || 0) : 0;
+    // Add shipping cost with 10% discount if > 2 products
+    let shippingCost = formData.delivery_type === "external" ? (formData.shipping_cost || 0) : 0;
+    const shippingDiscount = productCount > 2 ? Math.round(shippingCost * 0.1 * 100) / 100 : 0;
+    shippingCost = Math.round((shippingCost - shippingDiscount) * 100) / 100;
     
     // Calculate OB cost (already imported at top)
     const obCost = calculateOBCost(formData.pickup_date, formData.pickup_time, formData.delivery_date, formData.delivery_time);
@@ -258,7 +260,7 @@ export default function NewManualBookingPage() {
     const tax = Math.round(subtotalWithShippingAndOB * taxRate * 100) / 100;
     const total = Math.round((subtotalWithShippingAndOB + tax) * 100) / 100;
 
-    return { subtotal, discount, shipping: shippingCost, ob: obCost, tax, total, obReasons };
+    return { subtotal, discount, shipping: shippingCost, shippingDiscount, ob: obCost, tax, total, obReasons };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -777,6 +779,14 @@ export default function NewManualBookingPage() {
                   <div className="flex justify-between text-gray-600">
                     <span>Fraktkostnad:</span>
                     <span>+{totalPrice.shipping.toLocaleString("sv-SE")} SEK</span>
+                  </div>
+                )}
+                
+                {/* Shipping discount row */}
+                {shippingDiscount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Fraktrabatt (10%):</span>
+                    <span>-{shippingDiscount.toLocaleString("sv-SE")} SEK</span>
                   </div>
                 )}
                 
