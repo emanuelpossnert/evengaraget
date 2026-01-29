@@ -135,13 +135,19 @@ export default function CalendarPage() {
       if (bookingsError) throw bookingsError;
 
       for (const booking of bookingsData || []) {
-        const { data: customerData } = await supabase
-          .from("customers")
-          .select("name")
-          .eq("id", booking.customer_id)
-          .single();
+        let customerName = "Okänd";
+        
+        if (booking.customer_id) {
+          const { data: customerData } = await supabase
+            .from("customers")
+            .select("name")
+            .eq("id", booking.customer_id)
+            .single();
 
-        const customerName = customerData?.name || "Okänd";
+          if (customerData?.name) {
+            customerName = customerData.name;
+          }
+        }
 
         let productStr = "Produkter";
         try {
@@ -236,9 +242,14 @@ export default function CalendarPage() {
   // Separera timed och untimed events för en dag
   const getDayEvents = (date: Date) => {
     const dayEvents = events.filter((event) => {
-      const eventStart = parseISO(event.date);
-      const eventEnd = parseISO(event.end_date);
-      return isWithinInterval(date, { start: eventStart, end: eventEnd });
+      if (!event.date || !event.end_date) return false;
+      try {
+        const eventStart = parseISO(event.date);
+        const eventEnd = parseISO(event.end_date);
+        return isWithinInterval(date, { start: eventStart, end: eventEnd });
+      } catch (e) {
+        return false;
+      }
     });
 
     const timedEvents = dayEvents.filter((e) => {
@@ -260,10 +271,9 @@ export default function CalendarPage() {
 
   const handleEventClick = (event: Event) => {
     if (event.type === "todo") {
-      return; // Might add todo modal later
+      return; // To-Do modal kan läggas till senare
     }
-    const bookingEvent = event as BookingEvent;
-    setSelectedEvent(bookingEvent);
+    setSelectedEvent(event as BookingEvent);
   };
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
