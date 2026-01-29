@@ -155,9 +155,12 @@ export interface Task {
   task_type: string;
   assigned_to_user_id?: string;
   assigned_to_name?: string;
+  assigned_to_user_ids?: string[];
   due_date?: string;
-  start_date?: string;
-  end_date?: string;
+  start_date?: string;      // YYYY-MM-DD
+  start_time?: string;      // HH:MM
+  end_date?: string;        // YYYY-MM-DD
+  end_time?: string;        // HH:MM
   created_at: string;
   updated_at: string;
 }

@@ -57,6 +57,10 @@ export default function TODOPage() {
     description: '',
     priority: 'medium' as const,
     task_type: 'custom',
+    start_date: '',
+    start_time: '',
+    end_date: '',
+    end_time: '',
   });
 
   useEffect(() => {
@@ -156,12 +160,25 @@ export default function TODOPage() {
           task_type: newTaskForm.task_type,
           status: 'pending',
           assigned_to_user_ids: Array.from(selectedUserIds),
+          start_date: newTaskForm.start_date || null,
+          start_time: newTaskForm.start_time || null,
+          end_date: newTaskForm.end_date || null,
+          end_time: newTaskForm.end_time || null,
         }]);
       
       if (error) throw error;
       
       setShowNewTaskModal(false);
-      setNewTaskForm({ title: '', description: '', priority: 'medium', task_type: 'custom' });
+      setNewTaskForm({ 
+        title: '', 
+        description: '', 
+        priority: 'medium', 
+        task_type: 'custom',
+        start_date: '',
+        start_time: '',
+        end_date: '',
+        end_time: '',
+      });
       setSelectedUserIds(new Set());
       fetchTasks();
     } catch (error) {
@@ -278,6 +295,46 @@ export default function TODOPage() {
                     <option value="purchase">Inköp</option>
                     <option value="custom">Annat</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Start datum</label>
+                  <input
+                    type="date"
+                    value={newTaskForm.start_date}
+                    onChange={(e) => setNewTaskForm({ ...newTaskForm, start_date: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Start tid</label>
+                  <input
+                    type="time"
+                    value={newTaskForm.start_time}
+                    onChange={(e) => setNewTaskForm({ ...newTaskForm, start_time: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Slut datum</label>
+                  <input
+                    type="date"
+                    value={newTaskForm.end_date}
+                    onChange={(e) => setNewTaskForm({ ...newTaskForm, end_date: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Slut tid</label>
+                  <input
+                    type="time"
+                    value={newTaskForm.end_time}
+                    onChange={(e) => setNewTaskForm({ ...newTaskForm, end_time: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
                 </div>
 
                 <div>
