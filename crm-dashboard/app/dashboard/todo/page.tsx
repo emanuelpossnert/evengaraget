@@ -47,6 +47,8 @@ export default function TODOPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('pending');
   const [typeFilters, setTypeFilters] = useState<Set<string>>(new Set());
+  const [dateFromFilter, setDateFromFilter] = useState<string>('');
+  const [dateToFilter, setDateToFilter] = useState<string>('');
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
@@ -192,6 +194,10 @@ export default function TODOPage() {
     
     // Type filter - multi-select
     if (typeFilters.size > 0 && !typeFilters.has(t.task_type)) return false;
+    
+    // Date range filter
+    if (dateFromFilter && t.start_date && t.start_date < dateFromFilter) return false;
+    if (dateToFilter && t.end_date && t.end_date > dateToFilter) return false;
     
     return true;
   });
@@ -398,6 +404,43 @@ export default function TODOPage() {
               {statusLabels[status as keyof typeof statusLabels]} ({taskCounts[status as keyof typeof taskCounts]})
             </button>
           ))}
+        </div>
+
+        <div className="mb-6">
+          <p className="text-sm font-semibold text-gray-600 mb-3">Filtrera efter datum:</p>
+          <div className="flex gap-4 flex-wrap">
+            <div>
+              <label className="text-xs text-gray-600">Från datum</label>
+              <input
+                type="date"
+                value={dateFromFilter}
+                onChange={(e) => setDateFromFilter(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-600">Till datum</label>
+              <input
+                type="date"
+                value={dateToFilter}
+                onChange={(e) => setDateToFilter(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm"
+              />
+            </div>
+            {(dateFromFilter || dateToFilter) && (
+              <div className="flex items-end">
+                <button
+                  onClick={() => {
+                    setDateFromFilter('');
+                    setDateToFilter('');
+                  }}
+                  className="px-3 py-2 bg-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-400"
+                >
+                  Rensa datum-filter
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="mb-6">
