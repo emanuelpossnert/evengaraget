@@ -1,5 +1,8 @@
 'use client';
 
+// TODO Page - Task Management System
+// Last updated: Fix filteredTasks parser error
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Task, UserProfile } from '@/lib/types';
