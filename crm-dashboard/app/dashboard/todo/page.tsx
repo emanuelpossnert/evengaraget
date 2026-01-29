@@ -284,9 +284,9 @@ export default function TODOPage() {
   const filteredTasks = 
     (filter === 'all' ? tasks : tasks.filter((t) => t.status === filter))
     // Show all tasks for admin, only assigned/created by current user for others
-    .filter((t) => isAdmin || !currentUser ? true : 
-      t.assigned_to_user_ids?.includes(currentUser.id) || 
-      t.created_by === currentUser.id
+    .filter((t) => (isAdmin || !currentUser) ? true : 
+      (t.assigned_to_user_ids?.includes(currentUser.id) || 
+      t.created_by === currentUser.id)
     )
     .filter((t) => taskTypeFilters.size === 0 || taskTypeFilters.has(t.task_type))
     .filter((t) => {
