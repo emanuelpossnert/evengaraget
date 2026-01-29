@@ -33,48 +33,32 @@ const priorityColors = {
   urgent: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', badge: 'bg-red-100' },
 };
 
-const statusIcons = {
-  pending: <Clock size={16} />,
-  in_progress: <AlertCircle size={16} />,
-  completed: <CheckCircle2 size={16} />,
-  cancelled: <X size={16} />,
-};
-
 const statusLabels = {
   pending: 'Väntande',
   in_progress: 'Pågåande',
   completed: 'Slutförd',
   cancelled: 'Avbruten',
+  draft: 'Utkast',
 };
 
 export default function TODOPage() {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [bookings, setBookings] = useState<Map<string, BookingInfo>>(new Map());
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('pending');
-  const [taskTypeFilters, setTaskTypeFilters] = useState<Set<string>>(new Set());
-  const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [newTaskForm, setNewTaskForm] = useState({
     title: '',
     description: '',
     priority: 'medium' as const,
     task_type: 'custom',
-    start_date: '',
-    end_date: '',
-    assigned_to_user_id: '',
   });
 
   useEffect(() => {
-    fetchCurrentUser();
     fetchTasks();
     fetchUsers();
   }, []);
@@ -82,31 +66,13 @@ export default function TODOPage() {
   const fetchTasks = async () => {
     try {
       setLoading(true);
-
-      // Fetch all tasks
-      const { data: tasksData, error: tasksError } = await supabase
+      const { data, error } = await supabase
         .from('booking_tasks')
         .select('*')
-        .order('due_date', { ascending: true })
-        .order('priority', { ascending: false });
-
-      if (tasksError) throw tasksError;
-      setTasks(tasksData || []);
-
-      // Fetch booking info for all tasks
-      const bookingIds = Array.from(new Set((tasksData || []).map((t) => t.booking_id)));
-      if (bookingIds.length > 0) {
-        const { data: bookingsData } = await supabase
-          .from('bookings')
-          .select('id, booking_number, customer_id, location')
-          .in('id', bookingIds);
-
-        const bookingMap = new Map();
-        (bookingsData || []).forEach((b) => {
-          bookingMap.set(b.id, b);
-        });
-        setBookings(bookingMap);
-      }
+        .order('due_date', { ascending: true });
+      
+      if (error) throw error;
+      setTasks(data || []);
     } catch (error) {
       console.error('Error fetching tasks:', error);
     } finally {
@@ -116,93 +82,40 @@ export default function TODOPage() {
 
   const fetchUsers = async () => {
     try {
-      const { data: usersData, error } = await supabase
+      const { data, error } = await supabase
         .from('user_profiles')
-        .select('id, email, full_name, role, created_at, updated_at')
+        .select('id, email, full_name, role')
         .order('full_name');
-
+      
       if (error) throw error;
-      setUsers((usersData as UserProfile[]) || []);
+      setUsers((data as UserProfile[]) || []);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
   };
 
-  const fetchCurrentUser = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) return;
-
-      const { data: profile, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('email', user.email)
-        .single();
-
-      if (error) throw error;
-      if (profile) {
-        setCurrentUser(profile as UserProfile);
-        setIsAdmin(profile.role === 'admin' || profile.role === 'manager');
-      }
-    } catch (error) {
-      console.error('Error fetching current user:', error);
-    }
-  };
-
   const handleToggleStatus = async (taskId: string, currentStatus: string) => {
     try {
-      const newStatus =
-        currentStatus === 'pending'
-          ? 'in_progress'
-          : currentStatus === 'in_progress'
-            ? 'completed'
-            : 'pending';
-
-      // Get the task to check its type and booking_id
-      const task = tasks.find(t => t.id === taskId);
+      const newStatus = currentStatus === 'pending' ? 'in_progress' : currentStatus === 'in_progress' ? 'completed' : 'pending';
       
       const { error } = await supabase
         .from('booking_tasks')
         .update({ status: newStatus })
         .eq('id', taskId);
-
+      
       if (error) throw error;
-
-      // If this is a pickup or delivery task being marked as completed,
-      // also update the booking status to "completed" to trigger invoice creation
-      if (newStatus === 'completed' && task && (task.task_type === 'pickup' || task.task_type === 'delivery') && task.booking_id) {
-        try {
-          const { error: bookingError } = await supabase
-            .from('bookings')
-            .update({ status: 'completed' })
-            .eq('id', task.booking_id);
-          
-          if (bookingError) {
-            console.warn('Warning: Could not update booking status:', bookingError);
-          } else {
-            console.log('✅ Booking marked as completed, invoice task should be created by trigger');
-          }
-        } catch (err) {
-          console.warn('Error updating booking status:', err);
-        }
-      }
-
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, status: newStatus as any } : t))
-      );
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: newStatus as any } : t)));
     } catch (error) {
       console.error('Error updating task:', error);
     }
   };
 
   const handleDeleteTask = async (taskId: string) => {
-    if (!confirm('Är du säker på att du vill ta bort denna task?')) return;
-
+    if (!confirm('Är du säker?')) return;
+    
     try {
       const { error } = await supabase.from('booking_tasks').delete().eq('id', taskId);
-
       if (error) throw error;
-
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
     } catch (error) {
       console.error('Error deleting task:', error);
@@ -215,114 +128,60 @@ export default function TODOPage() {
         .from('booking_tasks')
         .update(updates)
         .eq('id', taskId);
-
+      
       if (error) throw error;
-
-      setTasks((prev) => 
-        prev.map((t) => t.id === taskId ? { ...t, ...updates } : t)
-      );
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t)));
       setEditingTaskId(null);
-      setMessage({ type: 'success', text: 'Uppgift uppdaterad!' });
-      setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       console.error('Error updating task:', error);
-      setMessage({ type: 'error', text: 'Kunde inte uppdatera uppgift' });
     }
   };
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    
     if (!newTaskForm.title.trim()) {
       setMessage({ type: 'error', text: 'Titel är obligatorisk' });
       return;
     }
-
+    
     try {
-      // Get selected users info
-      const selectedUsers = users.filter(u => selectedUserIds.has(u.id));
-      const assignedNames = selectedUsers.map(u => u.full_name).join(', ');
-
       const { error } = await supabase
         .from('booking_tasks')
         .insert([{
-          booking_id: null,
           title: newTaskForm.title,
           description: newTaskForm.description,
           priority: newTaskForm.priority,
-          status: 'pending',
           task_type: newTaskForm.task_type,
-          due_date: newTaskForm.start_date || null,
-          start_date: newTaskForm.start_date || null,
-          end_date: newTaskForm.end_date || newTaskForm.start_date || null,
+          status: 'pending',
           assigned_to_user_ids: Array.from(selectedUserIds),
-          assigned_to_name: assignedNames || null,
         }]);
-
+      
       if (error) throw error;
-
-      setMessage({ type: 'success', text: 'Uppgift skapad!' });
+      
       setShowNewTaskModal(false);
-      setNewTaskForm({
-        title: '',
-        description: '',
-        priority: 'medium',
-        task_type: 'custom',
-        start_date: '',
-        end_date: '',
-        assigned_to_user_id: '',
-      });
+      setNewTaskForm({ title: '', description: '', priority: 'medium', task_type: 'custom' });
       setSelectedUserIds(new Set());
       fetchTasks();
-      setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       console.error('Error creating task:', error);
-      setMessage({ type: 'error', text: 'Kunde inte skapa uppgift' });
     }
   };
 
-  const filteredTasks = 
-    (filter === 'all' ? tasks : tasks.filter((t) => t.status === filter))
-    // Show all tasks for admin, only assigned/created by current user for others
-    .filter((t) => (isAdmin || !currentUser) ? true : 
-      (t.assigned_to_user_ids?.includes(currentUser.id) || 
-      t.created_by === currentUser.id)
-    )
-    .filter((t) => taskTypeFilters.size === 0 || taskTypeFilters.has(t.task_type))
-    .filter((t) => {
-      // Filter by date range
-      if (!startDate && !endDate) return true;
-      
-      const taskDate = t.due_date || t.start_date;
-      if (!taskDate) return false;
-      
-      if (startDate && new Date(taskDate) < new Date(startDate)) return false;
-      if (endDate && new Date(taskDate) > new Date(endDate)) return false;
-      
-      return true;
-    });;
-
-  const stats = {
-    total: tasks.length,
+  const filteredTasks = filter === 'all' ? tasks : tasks.filter((t) => t.status === filter);
+  
+  const taskCounts = {
     pending: tasks.filter((t) => t.status === 'pending').length,
-    inProgress: tasks.filter((t) => t.status === 'in_progress').length,
+    in_progress: tasks.filter((t) => t.status === 'in_progress').length,
     completed: tasks.filter((t) => t.status === 'completed').length,
-    urgent: tasks.filter((t) => t.priority === 'urgent' && t.status !== 'completed').length,
   };
 
   if (loading) {
-    return (
-      <div className="p-8 text-center">
-        <div className="inline-block">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </div>
-    );
+    return <div className="p-8 text-center">Laddar...</div>;
   }
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
-      {/* Message Alert */}
       {message && (
         <div className={`fixed top-4 right-4 p-4 rounded-lg text-white z-50 ${
           message.type === 'success' ? 'bg-green-500' : 'bg-red-500'
@@ -331,424 +190,130 @@ export default function TODOPage() {
         </div>
       )}
 
-      {/* New Task Modal */}
-      {showNewTaskModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Ny Uppgift</h2>
-            <form onSubmit={handleCreateTask} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
-                <input
-                  type="text"
-                  value={newTaskForm.title}
-                  onChange={(e) => setNewTaskForm({...newTaskForm, title: e.target.value})}
-                  placeholder="Vad ska göras?"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Beskrivning</label>
-                <textarea
-                  value={newTaskForm.description}
-                  onChange={(e) => setNewTaskForm({...newTaskForm, description: e.target.value})}
-                  placeholder="Mer information (valfritt)..."
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Typ</label>
-                <select
-                  value={newTaskForm.task_type}
-                  onChange={(e) => setNewTaskForm({...newTaskForm, task_type: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                >
-                  <option value="custom">📋 Uppgift</option>
-                  <option value="invoice">📄 Fakturering</option>
-                  <option value="delivery">🚚 Leverans</option>
-                  <option value="pickup">📦 Upphämtning</option>
-                  <option value="purchase">🛒 Inköp</option>
-                  <option value="internal">🏢 Internal</option>
-                  <option value="foliering">✨ Foliering</option>
-                  <option value="external_shipping">📮 Extern Frakt</option>
-                  <option value="customer_pickup">👤 Customer Pickup</option>
-                  <option value="booked">✅ Bokat</option>
-                  <option value="inquiry">❓ Förfrågan</option>
-                  <option value="review">👀 Granska</option>
-                  <option value="confirm">✔️ Bekräfta</option>
-                  <option value="follow_up">📞 Följ upp</option>
-                  <option value="response_needed">💬 Meddelande</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Prioritet</label>
-                <select
-                  value={newTaskForm.priority}
-                  onChange={(e) => setNewTaskForm({...newTaskForm, priority: e.target.value as any})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                >
-                  <option value="low">🔵 Låg</option>
-                  <option value="medium">🟡 Medel</option>
-                  <option value="high">🟠 Hög</option>
-                  <option value="urgent">🔴 Brådskande</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Start-datum</label>
-                <input
-                  type="date"
-                  value={newTaskForm.start_date}
-                  onChange={(e) => setNewTaskForm({...newTaskForm, start_date: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Slut-datum (valfritt)</label>
-                <input
-                  type="date"
-                  value={newTaskForm.end_date}
-                  onChange={(e) => setNewTaskForm({...newTaskForm, end_date: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Tilldela till (valfritt)</label>
-                <div className="border border-gray-300 rounded-lg p-3 bg-gray-50 max-h-48 overflow-y-auto">
-                  {/* No assignment option */}
-                  <label className="flex items-center gap-2 cursor-pointer hover:bg-blue-50 p-2 rounded mb-1">
-                    <input
-                      type="checkbox"
-                      checked={selectedUserIds.size === 0}
-                      onChange={() => setSelectedUserIds(new Set())}
-                      className="w-4 h-4 rounded border-gray-300 cursor-pointer"
-                    />
-                    <span className="text-sm font-medium text-gray-700">-- Ingen tilldelning --</span>
-                  </label>
-                  
-                  {/* User options */}
-                  {users.map(user => (
-                    <label key={user.id} className="flex items-center gap-2 cursor-pointer hover:bg-blue-50 p-2 rounded">
-                      <input
-                        type="checkbox"
-                        checked={selectedUserIds.has(user.id)}
-                        onChange={(e) => {
-                          const newSet = new Set(selectedUserIds);
-                          if (e.target.checked) {
-                            newSet.add(user.id);
-                          } else {
-                            newSet.delete(user.id);
-                          }
-                          setSelectedUserIds(newSet);
-                        }}
-                        className="w-4 h-4 rounded border-gray-300 cursor-pointer"
-                      />
-                      <span className="text-sm text-gray-700">{user.full_name}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowNewTaskModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition"
-                >
-                  Avbryt
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition"
-                >
-                  Skapa
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.back()}
-              className="p-2 hover:bg-gray-200 rounded-lg transition"
-            >
-              <ArrowLeft size={24} className="text-gray-600" />
-            </button>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">📋 Att Göra</h1>
-              <p className="text-gray-600 mt-1">Hantera alla bokningsrelaterade uppgifter</p>
-            </div>
-          </div>
+          <h1 className="text-3xl font-bold text-gray-900">Att Göra</h1>
           <button
             onClick={() => setShowNewTaskModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold"
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
           >
-            <Plus size={20} />
-            Ny Uppgift
+            <Plus size={18} /> Ny Uppgift
           </button>
         </div>
 
-        {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-          {[
-            { label: 'Totalt', value: stats.total, color: 'bg-gray-100 text-gray-700' },
-            { label: 'Väntande', value: stats.pending, color: 'bg-blue-100 text-blue-700' },
-            { label: 'Pågåande', value: stats.inProgress, color: 'bg-yellow-100 text-yellow-700' },
-            { label: 'Slutförda', value: stats.completed, color: 'bg-green-100 text-green-700' },
-            { label: 'Brådskande', value: stats.urgent, color: 'bg-red-100 text-red-700' },
-          ].map((stat, i) => (
-            <div
-              key={i}
-              className={`${stat.color} rounded-lg p-4 text-center border-2 border-opacity-20`}
-            >
-              <p className="text-sm font-semibold opacity-75">{stat.label}</p>
-              <p className="text-2xl font-bold mt-1">{stat.value}</p>
+        {showNewTaskModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <h2 className="text-2xl font-bold mb-4">Ny Uppgift</h2>
+              <form onSubmit={handleCreateTask} className="space-y-4">
+                <input
+                  type="text"
+                  value={newTaskForm.title}
+                  onChange={(e) => setNewTaskForm({ ...newTaskForm, title: e.target.value })}
+                  placeholder="Titel"
+                  className="w-full px-4 py-2 border rounded-lg"
+                />
+                <textarea
+                  value={newTaskForm.description}
+                  onChange={(e) => setNewTaskForm({ ...newTaskForm, description: e.target.value })}
+                  placeholder="Beskrivning"
+                  rows={3}
+                  className="w-full px-4 py-2 border rounded-lg"
+                />
+                <select
+                  value={newTaskForm.priority}
+                  onChange={(e) => setNewTaskForm({ ...newTaskForm, priority: e.target.value as any })}
+                  className="w-full px-4 py-2 border rounded-lg"
+                >
+                  <option value="low">Låg</option>
+                  <option value="medium">Medel</option>
+                  <option value="high">Höh</option>
+                  <option value="urgent">Brådskande</option>
+                </select>
+                <button type="submit" className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">
+                  Skapa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowNewTaskModal(false)}
+                  className="w-full bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
+                >
+                  Avbryt
+                </button>
+              </form>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
 
-        {/* Filter */}
-        <div className="flex gap-2 mb-6 flex-wrap">
-          {[
-            { key: 'all', label: '🔍 Alla' },
-            { key: 'pending', label: '⏳ Väntande' },
-            { key: 'in_progress', label: '⚡ Pågåande' },
-            { key: 'completed', label: '✅ Slutförda' },
-          ].map((f) => (
+        <div className="flex gap-4 mb-8">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-4 py-2 rounded-lg font-medium ${filter === 'all' ? 'bg-purple-600 text-white' : 'bg-white text-gray-700'}`}
+          >
+            Alla
+          </button>
+          {['pending', 'in_progress', 'completed'].map((status) => (
             <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={`px-4 py-2 rounded-lg font-semibold transition ${
-                filter === f.key
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              key={status}
+              onClick={() => setFilter(status)}
+              className={`px-4 py-2 rounded-lg font-medium ${
+                filter === status ? 'bg-purple-600 text-white' : 'bg-white text-gray-700'
               }`}
             >
-              {f.label}
+              {statusLabels[status as keyof typeof statusLabels]} ({taskCounts[status as keyof typeof taskCounts]})
             </button>
           ))}
         </div>
 
-        {/* Date Filter */}
-        <div className="bg-white rounded-lg p-4 mb-6 border border-gray-200">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Från Datum</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Till Datum</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            {(startDate || endDate) && (
-              <div className="flex items-end">
-                <button
-                  onClick={() => {
-                    setStartDate('');
-                    setEndDate('');
-                  }}
-                  className="w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-semibold transition"
-                >
-                  Rensa Datumfilter
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Task Type Filter */}
-        <div className="mb-6 flex gap-2 flex-wrap">
-          <p className="text-sm font-semibold text-gray-600 w-full">Filtrera efter typ:</p>
-          {[
-            { key: 'review', label: 'Granska' },
-            { key: 'confirm', label: 'Bekräfta' },
-            { key: 'follow_up', label: 'Följ upp' },
-            { key: 'response_needed', label: 'Meddelanden' },
-            { key: 'invoice', label: 'Fakturering' },
-            { key: 'delivery', label: 'Leverans' },
-            { key: 'pickup', label: 'Upphämtning' },
-            { key: 'purchase', label: 'Inköp' },
-            { key: 'custom', label: 'Annat' },
-          ].map((f) => {
-            const count = tasks.filter(t => t.task_type === f.key && t.status === 'pending').length;
-            const isSelected = taskTypeFilters.has(f.key);
-            
-            return (
-              <button
-                key={f.key}
-                onClick={() => {
-                  const newFilters = new Set(taskTypeFilters);
-                  if (isSelected) {
-                    newFilters.delete(f.key);
-                  } else {
-                    newFilters.add(f.key);
-                  }
-                  setTaskTypeFilters(newFilters);
-                }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 ${
-                  isSelected
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {f.label}
-                {count > 0 && (
-                  <span className={`${isSelected ? 'bg-purple-400' : 'bg-gray-300'} px-2 py-0.5 rounded-full text-xs font-bold`}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Tasks List */}
         <div className="space-y-4">
           {filteredTasks.length === 0 ? (
-            <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-              <p className="text-gray-500 font-semibold">Inga uppgifter i denna kategori</p>
-              <p className="text-gray-400 text-sm mt-1">Alla uppgifter är under kontroll! 🎉</p>
+            <div className="bg-white rounded-lg p-8 text-center text-gray-500">
+              Inga uppgifter
             </div>
           ) : (
             filteredTasks.map((task) => {
-              const booking = task.booking_id ? bookings.get(task.booking_id) : undefined;
               const colors = priorityColors[task.priority];
-
               return (
-                <div
-                  key={task.id}
-                  className={`${colors.bg} border-2 ${colors.border} rounded-lg p-4 transition hover:shadow-md`}
-                >
-                  <div className="flex items-start gap-4">
-                    {/* Status Toggle */}
-                    <button
-                      onClick={() => handleToggleStatus(task.id, task.status)}
-                      className="flex-shrink-0 mt-1 p-1 hover:bg-gray-200 hover:bg-opacity-50 rounded"
-                    >
-                      {task.status === 'completed' ? (
-                        <CheckCircle2 size={24} className="text-green-600" />
-                      ) : (
-                        <div className="w-6 h-6 rounded-full border-2 border-gray-400"></div>
-                      )}
-                    </button>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3
-                          className={`font-bold text-lg ${
-                            task.status === 'completed'
-                              ? 'text-gray-500 line-through'
-                              : colors.text
-                          }`}
-                        >
-                          {task.title}
-                        </h3>
-                        <span
-                          className={`${colors.badge} ${colors.text} px-2 py-1 rounded text-xs font-semibold flex items-center gap-1`}
-                        >
-                          <Flag size={12} />
-                          {task.priority.toUpperCase()}
-                        </span>
-                        <span className="text-xs text-gray-600 bg-white bg-opacity-60 px-2 py-1 rounded">
-                          {statusLabels[task.status]}
-                        </span>
-                      </div>
-
-                      {task.description && (
-                        <p className="text-gray-700 text-sm mb-3">{task.description}</p>
-                      )}
-
-                      <div className="flex flex-wrap gap-4 text-sm">
-                        {booking && (
-                          <a
-                            href={`/dashboard/bookings/${task.booking_id}`}
-                            className="text-blue-600 hover:underline font-semibold flex items-center gap-1"
-                          >
-                            📌 {booking.booking_number}
-                          </a>
-                        )}
-
-                        {task.due_date && (
-                          <div className="flex items-center gap-1 text-gray-600">
-                            <Calendar size={14} />
-                            {new Date(task.due_date).toLocaleDateString('sv-SE')}
-                          </div>
-                        )}
-
-                        {task.assigned_to_name && (
-                          <div className="flex items-center gap-1 text-gray-600">
-                            <UserIcon size={14} />
-                            {task.assigned_to_name}
-                          </div>
-                        )}
-
-                        {task.task_type && (
-                          <div className="text-gray-600 bg-white bg-opacity-50 px-2 py-0.5 rounded text-xs">
-                            {task.task_type}
-                          </div>
-                        )}
-                      </div>
+                <div key={task.id} className={`${colors.bg} border-2 ${colors.border} rounded-lg p-4`}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-bold text-lg">{task.title}</h3>
+                      {task.description && <p className="text-sm text-gray-700 mt-1">{task.description}</p>}
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-2 flex-shrink-0">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleToggleStatus(task.id, task.status)}
+                        className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                      >
+                        {statusLabels[task.status]}
+                      </button>
                       <button
                         onClick={() => setEditingTaskId(editingTaskId === task.id ? null : task.id)}
-                        className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                        className="px-3 py-1 bg-yellow-600 text-white rounded text-sm hover:bg-yellow-700"
                       >
-                        <Edit2 size={18} />
+                        Redigera
                       </button>
                       <button
                         onClick={() => handleDeleteTask(task.id)}
-                        className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition"
+                        className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
                       >
-                        <Trash2 size={18} />
+                        Ta bort
                       </button>
                     </div>
                   </div>
-                </div>
-
-                {/* Edit Form */}
-                {editingTaskId === task.id && (
-                  <div className="mt-4 p-4 bg-white bg-opacity-50 rounded-lg border-2 border-blue-300 space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
+                  
+                  {editingTaskId === task.id && (
+                    <div className="mt-4 pt-4 border-t space-y-3">
                       <input
                         type="text"
                         defaultValue={task.title}
-                        onChange={(e) => {
-                          // Store in temp state
-                          const updated = { ...task, title: e.target.value };
-                          handleUpdateTask(task.id, updated);
-                        }}
-                        className="px-2 py-1 border border-gray-300 rounded text-sm"
-                        placeholder="Titel"
+                        onChange={(e) => handleUpdateTask(task.id, { title: e.target.value })}
+                        className="w-full px-3 py-2 border rounded text-sm"
                       />
                       <select
                         defaultValue={task.priority}
                         onChange={(e) => handleUpdateTask(task.id, { priority: e.target.value as any })}
-                        className="px-2 py-1 border border-gray-300 rounded text-sm"
+                        className="w-full px-3 py-2 border rounded text-sm"
                       >
                         <option value="low">Låg</option>
                         <option value="medium">Medel</option>
@@ -756,32 +321,9 @@ export default function TODOPage() {
                         <option value="urgent">Brådskande</option>
                       </select>
                     </div>
-                    <textarea
-                      defaultValue={task.description || ''}
-                      onChange={(e) => handleUpdateTask(task.id, { description: e.target.value })}
-                      className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                      placeholder="Beskrivning"
-                      rows={2}
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setEditingTaskId(null)}
-                        className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                      >
-                        Spara
-                      </button>
-                      <button
-                        onClick={() => setEditingTaskId(null)}
-                        className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
-                      >
-                        Avbryt
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            );
+                  )}
+                </div>
+              );
             })
           )}
         </div>
