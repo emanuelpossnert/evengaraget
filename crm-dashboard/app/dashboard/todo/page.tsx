@@ -281,26 +281,18 @@ export default function TODOPage() {
     }
   };
 
-  const filteredTasks = 
-    (filter === 'all' ? tasks : tasks.filter((t) => t.status === filter))
-    // Show all tasks for admin, only assigned/created by current user for others
-    .filter((t) => (isAdmin || !currentUser) ? true : 
-      (t.assigned_to_user_ids?.includes(currentUser.id) || 
-      t.created_by === currentUser.id)
-    )
+  const filteredTasks = tasks
+    .filter((t) => filter === 'all' || t.status === filter)
+    .filter((t) => (isAdmin || !currentUser) || (t.assigned_to_user_ids?.includes(currentUser.id) || t.created_by === currentUser.id))
     .filter((t) => taskTypeFilters.size === 0 || taskTypeFilters.has(t.task_type))
     .filter((t) => {
-      // Filter by date range
       if (!startDate && !endDate) return true;
-      
       const taskDate = t.due_date || t.start_date;
       if (!taskDate) return false;
-      
       if (startDate && new Date(taskDate) < new Date(startDate)) return false;
       if (endDate && new Date(taskDate) > new Date(endDate)) return false;
-      
       return true;
-    });;
+    });
 
   const stats = {
     total: tasks.length,
