@@ -206,12 +206,13 @@ export default function CalendarPage() {
         }
       }
 
-      // Fetch To-Dos
+      // Fetch To-Dos - Only pending and in_progress
       const { data: todosData, error: todosError } = await supabase
         .from("booking_tasks")
         .select("*")
         .gte("end_date", format(weekStart, "yyyy-MM-dd"))
-        .lte("start_date", format(weekEnd, "yyyy-MM-dd"));
+        .lte("start_date", format(weekEnd, "yyyy-MM-dd"))
+        .in("status", ["pending", "in_progress"]);
 
       if (todosError) throw todosError;
 
@@ -397,8 +398,14 @@ export default function CalendarPage() {
                                 {getEventIcon(event.type)} {event.type === "todo" ? (event as TodoEvent).title : (event as BookingEvent).booking_number}
                               </div>
                               {event.type === "todo" ? (
-                                <div className="text-xs text-gray-600">
-                                  {(event as TodoEvent).start_time} - {(event as TodoEvent).end_time || ""}
+                                <div>
+                                  <div className="text-xs text-gray-600">
+                                    {(event as TodoEvent).start_time} - {(event as TodoEvent).end_time || ""}
+                                  </div>
+                                  <div className="text-xs font-semibold mt-1">
+                                    {(event as TodoEvent).status === "pending" && "⏳ Väntande"}
+                                    {(event as TodoEvent).status === "in_progress" && "🔄 Pågåande"}
+                                  </div>
                                 </div>
                               ) : (
                                 <div className="text-xs text-gray-600">
@@ -434,7 +441,13 @@ export default function CalendarPage() {
                             {getEventIcon(event.type)} {event.type === "todo" ? (event as TodoEvent).title : (event as BookingEvent).booking_number}
                           </div>
                           {event.type === "todo" && (
-                            <div className="text-gray-600 truncate">{(event as TodoEvent).title}</div>
+                            <div>
+                              <div className="text-gray-600 truncate">{(event as TodoEvent).title}</div>
+                              <div className="text-xs font-semibold mt-1">
+                                {(event as TodoEvent).status === "pending" && "⏳ Väntande"}
+                                {(event as TodoEvent).status === "in_progress" && "🔄 Pågåande"}
+                              </div>
+                            </div>
                           )}
                         </div>
                       ))}
