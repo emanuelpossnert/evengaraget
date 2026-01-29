@@ -282,15 +282,30 @@ export default function TODOPage() {
   };
 
   const filteredTasks = tasks
-    .filter((t) => filter === 'all' || t.status === filter)
-    .filter((t) => (isAdmin || !currentUser) || (t.assigned_to_user_ids?.includes(currentUser.id) || t.created_by === currentUser.id))
-    .filter((t) => taskTypeFilters.size === 0 || taskTypeFilters.has(t.task_type))
     .filter((t) => {
-      if (!startDate && !endDate) return true;
-      const taskDate = t.due_date || t.start_date;
-      if (!taskDate) return false;
-      if (startDate && new Date(taskDate) < new Date(startDate)) return false;
-      if (endDate && new Date(taskDate) > new Date(endDate)) return false;
+      if (filter !== 'all' && t.status !== filter) return false;
+      
+      // Admin/user filter
+      if (!isAdmin && currentUser) {
+        const assignedIds = t.assigned_to_user_ids || [];
+        if (!assignedIds.includes(currentUser.id) && t.created_by !== currentUser.id) {
+          return false;
+        }
+      }
+      
+      // Task type filter
+      if (taskTypeFilters.size > 0 && !taskTypeFilters.has(t.task_type)) {
+        return false;
+      }
+      
+      // Date range filter
+      if (startDate || endDate) {
+        const taskDate = t.due_date || t.start_date;
+        if (!taskDate) return false;
+        if (startDate && new Date(taskDate) < new Date(startDate)) return false;
+        if (endDate && new Date(taskDate) > new Date(endDate)) return false;
+      }
+      
       return true;
     });
 
