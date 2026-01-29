@@ -62,6 +62,7 @@ export default function TODOPage() {
   const [endDate, setEndDate] = useState<string>('');
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [newTaskForm, setNewTaskForm] = useState({
     title: '',
     description: '',
@@ -205,6 +206,27 @@ export default function TODOPage() {
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
     } catch (error) {
       console.error('Error deleting task:', error);
+    }
+  };
+
+  const handleUpdateTask = async (taskId: string, updates: Partial<Task>) => {
+    try {
+      const { error } = await supabase
+        .from('booking_tasks')
+        .update(updates)
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      setTasks((prev) => 
+        prev.map((t) => t.id === taskId ? { ...t, ...updates } : t)
+      );
+      setEditingTaskId(null);
+      setMessage({ type: 'success', text: 'Uppgift uppdaterad!' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error('Error updating task:', error);
+      setMessage({ type: 'error', text: 'Kunde inte uppdatera uppgift' });
     }
   };
 
@@ -693,6 +715,12 @@ export default function TODOPage() {
                     {/* Actions */}
                     <div className="flex gap-2 flex-shrink-0">
                       <button
+                        onClick={() => setEditingTaskId(editingTaskId === task.id ? null : task.id)}
+                        className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                      <button
                         onClick={() => handleDeleteTask(task.id)}
                         className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition"
                       >
@@ -701,6 +729,56 @@ export default function TODOPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Edit Form */}
+                {editingTaskId === task.id && (
+                  <div className="mt-4 p-4 bg-white bg-opacity-50 rounded-lg border-2 border-blue-300 space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        defaultValue={task.title}
+                        onChange={(e) => {
+                          // Store in temp state
+                          const updated = { ...task, title: e.target.value };
+                          handleUpdateTask(task.id, updated);
+                        }}
+                        className="px-2 py-1 border border-gray-300 rounded text-sm"
+                        placeholder="Titel"
+                      />
+                      <select
+                        defaultValue={task.priority}
+                        onChange={(e) => handleUpdateTask(task.id, { priority: e.target.value as any })}
+                        className="px-2 py-1 border border-gray-300 rounded text-sm"
+                      >
+                        <option value="low">Låg</option>
+                        <option value="medium">Medel</option>
+                        <option value="high">Höh</option>
+                        <option value="urgent">Brådskande</option>
+                      </select>
+                    </div>
+                    <textarea
+                      defaultValue={task.description || ''}
+                      onChange={(e) => handleUpdateTask(task.id, { description: e.target.value })}
+                      className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                      placeholder="Beskrivning"
+                      rows={2}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setEditingTaskId(null)}
+                        className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                      >
+                        Spara
+                      </button>
+                      <button
+                        onClick={() => setEditingTaskId(null)}
+                        className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
+                      >
+                        Avbryt
+                      </button>
+                    </div>
+                  </div>
+                )}
               );
             })
           )}
