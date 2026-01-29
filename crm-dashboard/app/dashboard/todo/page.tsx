@@ -233,7 +233,7 @@ export default function TODOPage() {
 
         {showNewTaskModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-screen overflow-y-auto">
               <h2 className="text-2xl font-bold mb-4">Ny Uppgift</h2>
               <form onSubmit={handleCreateTask} className="space-y-4">
                 <input
@@ -260,13 +260,61 @@ export default function TODOPage() {
                   <option value="high">Höh</option>
                   <option value="urgent">Brådskande</option>
                 </select>
-                <button type="submit" className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Kategori</label>
+                  <select
+                    value={newTaskForm.task_type}
+                    onChange={(e) => setNewTaskForm({ ...newTaskForm, task_type: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  >
+                    <option value="review">Granska</option>
+                    <option value="confirm">Bekräfta</option>
+                    <option value="follow_up">Följ upp</option>
+                    <option value="response_needed">Meddelanden</option>
+                    <option value="invoice">Fakturering</option>
+                    <option value="delivery">Leverans</option>
+                    <option value="pickup">Upphämtning</option>
+                    <option value="purchase">Inköp</option>
+                    <option value="custom">Annat</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Tilldela till anställda</label>
+                  <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-3">
+                    {users.map((user) => (
+                      <label key={user.id} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedUserIds.has(user.id)}
+                          onChange={(e) => {
+                            const newIds = new Set(selectedUserIds);
+                            if (e.target.checked) {
+                              newIds.add(user.id);
+                            } else {
+                              newIds.delete(user.id);
+                            }
+                            setSelectedUserIds(newIds);
+                          }}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-sm">{user.full_name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <button type="submit" className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 font-medium">
                   Skapa
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowNewTaskModal(false)}
-                  className="w-full bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
+                  onClick={() => {
+                    setShowNewTaskModal(false);
+                    setSelectedUserIds(new Set());
+                  }}
+                  className="w-full bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 font-medium"
                 >
                   Avbryt
                 </button>
