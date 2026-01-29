@@ -45,7 +45,8 @@ export default function TODOPage() {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>('pending');
+  const [statusFilter, setStatusFilter] = useState<string>('pending');
+  const [typeFilters, setTypeFilters] = useState<Set<string>>(new Set());
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
@@ -168,12 +169,41 @@ export default function TODOPage() {
     }
   };
 
-  const filteredTasks = filter === 'all' ? tasks : tasks.filter((t) => t.status === filter);
+  const filteredTasks = tasks.filter((t) => {
+    // Status filter
+    if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+    
+    // Type filter - multi-select
+    if (typeFilters.size > 0 && !typeFilters.has(t.task_type)) return false;
+    
+    return true;
+  });
+  
+  // Count tasks by type for pending status
+  const typeCounts: Record<string, number> = {};
+  tasks
+    .filter((t) => t.status === 'pending')
+    .forEach((t) => {
+      typeCounts[t.task_type] = (typeCounts[t.task_type] || 0) + 1;
+    });
   
   const taskCounts = {
     pending: tasks.filter((t) => t.status === 'pending').length,
     in_progress: tasks.filter((t) => t.status === 'in_progress').length,
     completed: tasks.filter((t) => t.status === 'completed').length,
+  };
+  
+  const taskTypes = ['review', 'confirm', 'follow_up', 'response_needed', 'invoice', 'delivery', 'pickup', 'purchase', 'custom'];
+  const typeLabels: Record<string, string> = {
+    review: 'Granska',
+    confirm: 'Bekräfta',
+    follow_up: 'Följ upp',
+    response_needed: 'Meddelanden',
+    invoice: 'Fakturering',
+    delivery: 'Leverans',
+    pickup: 'Upphämtning',
+    purchase: 'Inköp',
+    custom: 'Annat',
   };
 
   if (loading) {
@@ -247,22 +277,59 @@ export default function TODOPage() {
 
         <div className="flex gap-4 mb-8">
           <button
-            onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-lg font-medium ${filter === 'all' ? 'bg-purple-600 text-white' : 'bg-white text-gray-700'}`}
+            onClick={() => setStatusFilter('all')}
+            className={`px-4 py-2 rounded-lg font-medium ${statusFilter === 'all' ? 'bg-purple-600 text-white' : 'bg-white text-gray-700'}`}
           >
             Alla
           </button>
           {['pending', 'in_progress', 'completed'].map((status) => (
             <button
               key={status}
-              onClick={() => setFilter(status)}
+              onClick={() => setStatusFilter(status)}
               className={`px-4 py-2 rounded-lg font-medium ${
-                filter === status ? 'bg-purple-600 text-white' : 'bg-white text-gray-700'
+                statusFilter === status ? 'bg-purple-600 text-white' : 'bg-white text-gray-700'
               }`}
             >
               {statusLabels[status as keyof typeof statusLabels]} ({taskCounts[status as keyof typeof taskCounts]})
             </button>
           ))}
+        </div>
+
+        <div className="mb-6">
+          <p className="text-sm font-semibold text-gray-600 mb-3">Filtrera efter kategori:</p>
+          <div className="flex gap-2 flex-wrap">
+            {taskTypes.map((type) => {
+              const count = typeCounts[type] || 0;
+              const isSelected = typeFilters.has(type);
+              
+              return (
+                <button
+                  key={type}
+                  onClick={() => {
+                    const newFilters = new Set(typeFilters);
+                    if (isSelected) {
+                      newFilters.delete(type);
+                    } else {
+                      newFilters.add(type);
+                    }
+                    setTypeFilters(newFilters);
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 ${
+                    isSelected
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {typeLabels[type]}
+                  {count > 0 && (
+                    <span className={`${isSelected ? 'bg-purple-400' : 'bg-gray-300'} px-2 py-0.5 rounded-full text-xs font-bold`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="space-y-4">
