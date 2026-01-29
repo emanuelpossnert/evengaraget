@@ -319,6 +319,7 @@ export default function TODOPage() {
                   <option value="invoice">📄 Fakturering</option>
                   <option value="delivery">🚚 Leverans</option>
                   <option value="pickup">📦 Upphämtning</option>
+                  <option value="purchase">🛒 Inköp</option>
                   <option value="internal">🏢 Internal</option>
                   <option value="foliering">✨ Foliering</option>
                   <option value="external_shipping">📮 Extern Frakt</option>
@@ -537,6 +538,7 @@ export default function TODOPage() {
             { key: 'invoice', label: '📄 Fakturering' },
             { key: 'delivery', label: '🚚 Leverans' },
             { key: 'pickup', label: '📦 Upphämtning' },
+            { key: 'purchase', label: '🛒 Inköp' },
             { key: 'custom', label: '📋 Annat' },
           ].map((f) => (
             <button
