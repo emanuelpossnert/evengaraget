@@ -60,6 +60,8 @@ export default function TODOPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [newTaskForm, setNewTaskForm] = useState({
     title: '',
     description: '',
@@ -71,6 +73,7 @@ export default function TODOPage() {
   });
 
   useEffect(() => {
+    fetchCurrentUser();
     fetchTasks();
     fetchUsers();
   }, []);
@@ -121,6 +124,27 @@ export default function TODOPage() {
       setUsers((usersData as UserProfile[]) || []);
     } catch (error) {
       console.error('Error fetching users:', error);
+    }
+  };
+
+  const fetchCurrentUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) return;
+
+      const { data: profile, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('email', user.email)
+        .single();
+
+      if (error) throw error;
+      if (profile) {
+        setCurrentUser(profile as UserProfile);
+        setIsAdmin(profile.role === 'admin' || profile.role === 'manager');
+      }
+    } catch (error) {
+      console.error('Error fetching current user:', error);
     }
   };
 
@@ -237,6 +261,11 @@ export default function TODOPage() {
 
   const filteredTasks = 
     (filter === 'all' ? tasks : tasks.filter((t) => t.status === filter))
+    // Show all tasks for admin, only assigned/created by current user for others
+    .filter((t) => isAdmin || !currentUser ? true : 
+      t.assigned_to_user_ids?.includes(currentUser.id) || 
+      t.created_by === currentUser.id
+    )
     .filter((t) => taskTypeFilters.size === 0 || taskTypeFilters.has(t.task_type))
     .filter((t) => {
       // Filter by date range
