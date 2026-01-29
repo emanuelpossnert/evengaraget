@@ -284,33 +284,8 @@ export default function TODOPage() {
     }
   };
 
-  const filteredTasks = tasks
-    .filter((t) => {
-      if (filter !== 'all' && t.status !== filter) return false;
-      
-      // Admin/user filter
-      if (!isAdmin && currentUser) {
-        const assignedIds = t.assigned_to_user_ids || [];
-        if (!assignedIds.includes(currentUser.id) && t.created_by !== currentUser.id) {
-          return false;
-        }
-      }
-      
-      // Task type filter
-      if (taskTypeFilters.size > 0 && !taskTypeFilters.has(t.task_type)) {
-        return false;
-      }
-      
-      // Date range filter
-      if (startDate || endDate) {
-        const taskDate = t.due_date || t.start_date;
-        if (!taskDate) return false;
-        if (startDate && new Date(taskDate) < new Date(startDate)) return false;
-        if (endDate && new Date(taskDate) > new Date(endDate)) return false;
-      }
-      
-      return true;
-    });
+  // Simple task filter for now
+  const filteredTasks = tasks;
 
   const stats = {
     total: tasks.length,
