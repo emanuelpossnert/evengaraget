@@ -152,6 +152,11 @@ export default function TODOPage() {
       return;
     }
     
+    if (!newTaskForm.start_date) {
+      setMessage({ type: 'error', text: 'Start datum är obligatorisk' });
+      return;
+    }
+    
     try {
       const { error } = await supabase
         .from('booking_tasks')
@@ -162,9 +167,9 @@ export default function TODOPage() {
           task_type: newTaskForm.task_type,
           status: 'pending',
           assigned_to_user_ids: Array.from(selectedUserIds),
-          start_date: newTaskForm.start_date || null,
+          start_date: newTaskForm.start_date,
           start_time: newTaskForm.start_time || null,
-          end_date: newTaskForm.end_date || null,
+          end_date: newTaskForm.end_date || newTaskForm.start_date,
           end_time: newTaskForm.end_time || null,
         }]);
       
@@ -304,12 +309,13 @@ export default function TODOPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Start datum</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Start datum *</label>
                   <input
                     type="date"
                     value={newTaskForm.start_date}
                     onChange={(e) => setNewTaskForm({ ...newTaskForm, start_date: e.target.value })}
                     className="w-full px-4 py-2 border rounded-lg"
+                    required
                   />
                 </div>
 
