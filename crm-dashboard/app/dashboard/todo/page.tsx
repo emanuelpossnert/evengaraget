@@ -53,7 +53,7 @@ export default function TODOPage() {
   const [bookings, setBookings] = useState<Map<string, BookingInfo>>(new Map());
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('pending');
-  const [taskTypeFilter, setTaskTypeFilter] = useState<string>('all');
+  const [taskTypeFilters, setTaskTypeFilters] = useState<Set<string>>(new Set());
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -237,7 +237,7 @@ export default function TODOPage() {
 
   const filteredTasks = 
     (filter === 'all' ? tasks : tasks.filter((t) => t.status === filter))
-    .filter((t) => taskTypeFilter === 'all' || t.task_type === taskTypeFilter)
+    .filter((t) => taskTypeFilters.size === 0 || taskTypeFilters.has(t.task_type))
     .filter((t) => {
       // Filter by date range
       if (!startDate && !endDate) return true;
@@ -530,35 +530,46 @@ export default function TODOPage() {
         <div className="mb-6 flex gap-2 flex-wrap">
           <p className="text-sm font-semibold text-gray-600 w-full">Filtrera efter typ:</p>
           {[
-            { key: 'all', label: 'Alla typer' },
-            { key: 'review', label: '👀 Granska' },
-            { key: 'confirm', label: '✔️ Bekräfta' },
-            { key: 'follow_up', label: '📞 Följ upp' },
-            { key: 'response_needed', label: '💬 Meddelanden' },
-            { key: 'invoice', label: '📄 Fakturering' },
-            { key: 'delivery', label: '🚚 Leverans' },
-            { key: 'pickup', label: '📦 Upphämtning' },
-            { key: 'purchase', label: '🛒 Inköp' },
-            { key: 'custom', label: '📋 Annat' },
-          ].map((f) => (
-            <button
-              key={f.key}
-              onClick={() => {
-                if (taskTypeFilter === f.key) {
-                  setTaskTypeFilter('all');
-                } else {
-                  setTaskTypeFilter(f.key);
-                }
-              }}
-              className={`px-3 py-1 rounded text-sm transition ${
-                taskTypeFilter === f.key || (taskTypeFilter === 'all' && f.key === 'all')
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+            { key: 'review', label: 'Granska' },
+            { key: 'confirm', label: 'Bekräfta' },
+            { key: 'follow_up', label: 'Följ upp' },
+            { key: 'response_needed', label: 'Meddelanden' },
+            { key: 'invoice', label: 'Fakturering' },
+            { key: 'delivery', label: 'Leverans' },
+            { key: 'pickup', label: 'Upphämtning' },
+            { key: 'purchase', label: 'Inköp' },
+            { key: 'custom', label: 'Annat' },
+          ].map((f) => {
+            const count = tasks.filter(t => t.task_type === f.key && t.status === 'pending').length;
+            const isSelected = taskTypeFilters.has(f.key);
+            
+            return (
+              <button
+                key={f.key}
+                onClick={() => {
+                  const newFilters = new Set(taskTypeFilters);
+                  if (isSelected) {
+                    newFilters.delete(f.key);
+                  } else {
+                    newFilters.add(f.key);
+                  }
+                  setTaskTypeFilters(newFilters);
+                }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 ${
+                  isSelected
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {f.label}
+                {count > 0 && (
+                  <span className={`${isSelected ? 'bg-purple-400' : 'bg-gray-300'} px-2 py-0.5 rounded-full text-xs font-bold`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Tasks List */}
