@@ -126,11 +126,11 @@ export default function CalendarPage() {
       setLoading(true);
       const allEvents: Event[] = [];
 
-      // Fetch bookings
+      // Fetch bookings - Include all statuses
       const { data: bookingsData, error: bookingsError } = await supabase
         .from("bookings")
         .select("*")
-        .in("status", ["pending", "confirmed", "completed"]);
+        .in("status", ["draft", "pending", "confirmed", "completed"]);
 
       if (bookingsError) throw bookingsError;
 
@@ -239,13 +239,19 @@ export default function CalendarPage() {
     }
   };
 
-  // Separera timed och untimed events för en dag
+  // Separera timed och untimed events för en dag, med filter
   const getDayEvents = (date: Date) => {
     const dayEvents = events.filter((event) => {
       if (!event.date || !event.end_date) return false;
       try {
         const eventStart = parseISO(event.date);
         const eventEnd = parseISO(event.end_date);
+        
+        // Apply type filter
+        if (filterType !== "all" && event.type !== filterType) {
+          return false;
+        }
+        
         return isWithinInterval(date, { start: eventStart, end: eventEnd });
       } catch (e) {
         return false;
@@ -312,7 +318,7 @@ export default function CalendarPage() {
 
         {/* Filter buttons */}
         <div className="flex gap-2 mb-6 flex-wrap">
-          {["all", "pickup", "delivery", "event", "internal", "todo"].map((type) => (
+          {["all", "pickup", "delivery", "event", "internal", "foliering", "external_shipping", "customer_pickup", "todo"].map((type) => (
             <button
               key={type}
               onClick={() => setFilterType(type)}
@@ -327,6 +333,9 @@ export default function CalendarPage() {
               {type === "delivery" && "📦 Leverans"}
               {type === "event" && "🎉 Event"}
               {type === "internal" && "📋 Internal"}
+              {type === "foliering" && "🖨️ Foliering"}
+              {type === "external_shipping" && "🚛 Extern Frakt"}
+              {type === "customer_pickup" && "👤 Kundhämtning"}
               {type === "todo" && "✓ Uppgifter"}
             </button>
           ))}
