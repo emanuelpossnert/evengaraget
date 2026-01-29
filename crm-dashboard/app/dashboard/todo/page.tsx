@@ -451,6 +451,18 @@ export default function TODOPage() {
                     <div className="flex-1">
                       <h3 className="font-bold text-lg">{task.title}</h3>
                       {task.description && <p className="text-sm text-gray-700 mt-1">{task.description}</p>}
+                      
+                      {/* Visa datum och tid */}
+                      {(task.start_date || task.start_time) && (
+                        <div className="mt-2 flex gap-4 text-sm text-gray-600">
+                          {task.start_date && (
+                            <span>📅 {task.start_date}{task.start_time ? ` ${task.start_time}` : ''}</span>
+                          )}
+                          {task.end_date && task.end_date !== task.start_date && (
+                            <span>→ {task.end_date}{task.end_time ? ` ${task.end_time}` : ''}</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -481,6 +493,7 @@ export default function TODOPage() {
                         defaultValue={task.title}
                         onChange={(e) => handleUpdateTask(task.id, { title: e.target.value })}
                         className="w-full px-3 py-2 border rounded text-sm"
+                        placeholder="Titel"
                       />
                       <select
                         defaultValue={task.priority}
@@ -492,6 +505,37 @@ export default function TODOPage() {
                         <option value="high">Höh</option>
                         <option value="urgent">Brådskande</option>
                       </select>
+                      <textarea
+                        defaultValue={task.description || ''}
+                        onChange={(e) => handleUpdateTask(task.id, { description: e.target.value })}
+                        className="w-full px-3 py-2 border rounded text-sm"
+                        placeholder="Beskrivning"
+                        rows={2}
+                      />
+                      <input
+                        type="date"
+                        defaultValue={task.start_date || ''}
+                        onChange={(e) => handleUpdateTask(task.id, { start_date: e.target.value })}
+                        className="w-full px-3 py-2 border rounded text-sm"
+                      />
+                      <input
+                        type="time"
+                        defaultValue={task.start_time || ''}
+                        onChange={(e) => handleUpdateTask(task.id, { start_time: e.target.value })}
+                        className="w-full px-3 py-2 border rounded text-sm"
+                      />
+                      <input
+                        type="date"
+                        defaultValue={task.end_date || ''}
+                        onChange={(e) => handleUpdateTask(task.id, { end_date: e.target.value })}
+                        className="w-full px-3 py-2 border rounded text-sm"
+                      />
+                      <input
+                        type="time"
+                        defaultValue={task.end_time || ''}
+                        onChange={(e) => handleUpdateTask(task.id, { end_time: e.target.value })}
+                        className="w-full px-3 py-2 border rounded text-sm"
+                      />
                     </div>
                   )}
                 </div>
