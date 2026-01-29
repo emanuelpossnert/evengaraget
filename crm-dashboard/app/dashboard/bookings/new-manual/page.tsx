@@ -783,10 +783,10 @@ export default function NewManualBookingPage() {
                 )}
                 
                 {/* Shipping discount row */}
-                {totalPrice.shippingDiscount > 0 && (
+                {(totalPrice.shippingDiscount ?? 0) > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>Fraktrabatt (10%):</span>
-                    <span>-{totalPrice.shippingDiscount.toLocaleString("sv-SE")} SEK</span>
+                    <span>-{(totalPrice.shippingDiscount ?? 0).toLocaleString("sv-SE")} SEK</span>
                   </div>
                 )}
                 
