@@ -300,7 +300,7 @@ export default function TODOPage() {
       if (endDate && new Date(taskDate) > new Date(endDate)) return false;
       
       return true;
-    });
+    });;
 
   const stats = {
     total: tasks.length,
