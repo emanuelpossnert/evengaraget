@@ -9,7 +9,7 @@ import {
   Package,
   Truck,
   Calendar as CalendarIcon,
-  Download,
+  X,
 } from "lucide-react";
 import {
   startOfWeek,
@@ -19,58 +19,122 @@ import {
   eachDayOfInterval,
   format,
   isSameDay,
+  parseISO,
+  isWithinInterval,
 } from "date-fns";
 import { sv } from "date-fns/locale";
+import { useRouter } from "next/navigation";
 
 interface BookingEvent {
   id: string;
   booking_id: string;
   booking_number: string;
-  type: "pickup" | "delivery" | "event" | "internal" | "foliering" | "external_shipping" | "customer_pickup" | "booked" | "inquiry"; // extended types
+  type: "pickup" | "delivery" | "event" | "internal" | "foliering" | "external_shipping" | "customer_pickup" | "booked" | "inquiry";
   date: string;
   end_date: string;
+  start_time?: string;
   location: string;
   customer_name: string;
   products: string;
-  delivery_type?: "internal" | "external"; // For delivery events
-  category?: string;
+  delivery_type?: "internal" | "external";
 }
+
+interface TodoEvent {
+  id: string;
+  type: "todo";
+  title: string;
+  start_date: string;
+  start_time?: string;
+  end_date: string;
+  end_time?: string;
+  priority: "low" | "medium" | "high" | "urgent";
+  status: "pending" | "in_progress" | "completed" | "cancelled";
+}
+
+type Event = BookingEvent | TodoEvent;
 
 interface DayColumn {
   date: Date;
-  events: BookingEvent[];
+  events: Event[];
+  timedEvents: Event[];
+  untimedEvents: Event[];
 }
 
-export default function CalendarGanttPage() {
+const eventColors: Record<string, { bg: string; border: string; text: string }> = {
+  pickup: { bg: "bg-blue-100", border: "border-blue-400", text: "text-blue-900" },
+  delivery: { bg: "bg-purple-100", border: "border-purple-400", text: "text-purple-900" },
+  event: { bg: "bg-green-100", border: "border-green-400", text: "text-green-900" },
+  internal: { bg: "bg-yellow-100", border: "border-yellow-400", text: "text-yellow-900" },
+  foliering: { bg: "bg-orange-100", border: "border-orange-400", text: "text-orange-900" },
+  external_shipping: { bg: "bg-red-100", border: "border-red-400", text: "text-red-900" },
+  customer_pickup: { bg: "bg-indigo-100", border: "border-indigo-400", text: "text-indigo-900" },
+  todo_low: { bg: "bg-gray-100", border: "border-gray-400", text: "text-gray-900" },
+  todo_medium: { bg: "bg-blue-100", border: "border-blue-400", text: "text-blue-900" },
+  todo_high: { bg: "bg-orange-100", border: "border-orange-400", text: "text-orange-900" },
+  todo_urgent: { bg: "bg-red-100", border: "border-red-400", text: "text-red-900" },
+};
+
+const getEventColor = (event: Event) => {
+  if (event.type === "todo") {
+    const todoEvent = event as TodoEvent;
+    return eventColors[`todo_${todoEvent.priority}`] || eventColors.todo_medium;
+  }
+  return eventColors[event.type] || eventColors.internal;
+};
+
+const getEventIcon = (type: string) => {
+  switch (type) {
+    case "pickup":
+      return "🚚";
+    case "delivery":
+      return "📦";
+    case "event":
+      return "🎉";
+    case "internal":
+      return "📋";
+    case "foliering":
+      return "🖨️";
+    case "external_shipping":
+      return "🚛";
+    case "customer_pickup":
+      return "👤";
+    case "todo":
+      return "✓";
+    default:
+      return "📌";
+  }
+};
+
+export default function CalendarPage() {
+  const router = useRouter();
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [bookings, setBookings] = useState<BookingEvent[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterType, setFilterType] = useState<"all" | "pickup" | "delivery" | "event">("all");
-  const [selectedEvent, setSelectedEvent] = useState<BookingEvent | null>(null);
+  const [filterType, setFilterType] = useState<string>("all");
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   const weekStart = startOfWeek(currentWeekStart, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
   useEffect(() => {
-    fetchBookings();
+    fetchAllEvents();
   }, []);
 
-  const fetchBookings = async () => {
+  const fetchAllEvents = async () => {
     try {
       setLoading(true);
+      const allEvents: Event[] = [];
 
-      const { data: bookingsData, error } = await supabase
+      // Fetch bookings
+      const { data: bookingsData, error: bookingsError } = await supabase
         .from("bookings")
         .select("*")
         .in("status", ["pending", "confirmed", "completed"]);
 
-      if (error) throw error;
-
-      const events: BookingEvent[] = [];
+      if (bookingsError) throw bookingsError;
 
       for (const booking of bookingsData || []) {
-        // Hämta kundnamn
         const { data: customerData } = await supabase
           .from("customers")
           .select("name")
@@ -79,7 +143,6 @@ export default function CalendarGanttPage() {
 
         const customerName = customerData?.name || "Okänd";
 
-        // Parse produkter
         let productStr = "Produkter";
         try {
           const products = JSON.parse(booking.products_requested || "[]");
@@ -88,24 +151,25 @@ export default function CalendarGanttPage() {
           productStr = "Produkter";
         }
 
-        // Lägg till pickup-event
+        // Pickup event
         if (booking.pickup_date) {
-          events.push({
+          allEvents.push({
             id: `${booking.id}-pickup`,
             booking_id: booking.id,
             booking_number: booking.booking_number,
             type: "pickup",
             date: booking.pickup_date,
             end_date: booking.pickup_date,
+            start_time: booking.pickup_time || undefined,
             location: booking.location || "Okänd plats",
             customer_name: customerName,
             products: productStr,
           });
         }
 
-        // Lägg till event
+        // Event
         if (booking.event_date) {
-          events.push({
+          allEvents.push({
             id: `${booking.id}-event`,
             booking_id: booking.id,
             booking_number: booking.booking_number,
@@ -118,15 +182,16 @@ export default function CalendarGanttPage() {
           });
         }
 
-        // Lägg till delivery-event
+        // Delivery event
         if (booking.delivery_date) {
-          events.push({
+          allEvents.push({
             id: `${booking.id}-delivery`,
             booking_id: booking.id,
             booking_number: booking.booking_number,
             type: "delivery",
             date: booking.delivery_date,
             end_date: booking.delivery_date,
+            start_time: booking.delivery_time || undefined,
             location: booking.location || "Okänd plats",
             customer_name: customerName,
             products: productStr,
@@ -135,293 +200,291 @@ export default function CalendarGanttPage() {
         }
       }
 
-      setBookings(events);
+      // Fetch To-Dos
+      const { data: todosData, error: todosError } = await supabase
+        .from("booking_tasks")
+        .select("*")
+        .gte("end_date", format(weekStart, "yyyy-MM-dd"))
+        .lte("start_date", format(weekEnd, "yyyy-MM-dd"));
+
+      if (todosError) throw todosError;
+
+      for (const todo of todosData || []) {
+        if (todo.start_date) {
+          allEvents.push({
+            id: todo.id,
+            type: "todo",
+            title: todo.title,
+            start_date: todo.start_date,
+            start_time: todo.start_time || undefined,
+            end_date: todo.end_date || todo.start_date,
+            end_time: todo.end_time || undefined,
+            priority: todo.priority || "medium",
+            status: todo.status || "pending",
+          } as TodoEvent);
+        }
+      }
+
+      setEvents(allEvents);
     } catch (error) {
-      console.error("Error fetching bookings:", error);
+      console.error("Error fetching events:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Gruppera events per dag
-  const getDayEvents = (date: Date): BookingEvent[] => {
-    return bookings.filter((event) => isSameDay(new Date(event.date), date));
+  // Separera timed och untimed events för en dag
+  const getDayEvents = (date: Date) => {
+    const dayEvents = events.filter((event) => {
+      const eventStart = parseISO(event.date);
+      const eventEnd = parseISO(event.end_date);
+      return isWithinInterval(date, { start: eventStart, end: eventEnd });
+    });
+
+    const timedEvents = dayEvents.filter((e) => {
+      if (e.type === "todo") {
+        return (e as TodoEvent).start_time;
+      }
+      return (e as BookingEvent).start_time;
+    });
+
+    const untimedEvents = dayEvents.filter((e) => {
+      if (e.type === "todo") {
+        return !(e as TodoEvent).start_time;
+      }
+      return !(e as BookingEvent).start_time;
+    });
+
+    return { all: dayEvents, timedEvents, untimedEvents };
   };
 
-  // Filter events
-  const getFilteredEvents = (events: BookingEvent[]): BookingEvent[] => {
-    if (filterType === "all") return events;
-    return events.filter((e) => e.type === filterType);
+  const handleEventClick = (event: Event) => {
+    if (event.type === "todo") {
+      return; // Might add todo modal later
+    }
+    const bookingEvent = event as BookingEvent;
+    setSelectedEvent(bookingEvent);
   };
 
-  const getEventColor = (type: string, delivery_type?: string) => {
-    if (type === "pickup") return "bg-blue-500 hover:bg-blue-600 border-l-4 border-blue-700";
-    if (type === "event") return "bg-green-500 hover:bg-green-600 border-l-4 border-green-700";
-    if (type === "delivery" && delivery_type === "external") return "bg-orange-500 hover:bg-orange-600 border-l-4 border-orange-700";
-    if (type === "delivery") return "bg-purple-500 hover:bg-purple-600 border-l-4 border-purple-700"; // internal delivery
-    if (type === "internal") return "bg-indigo-500 hover:bg-indigo-600 border-l-4 border-indigo-700";
-    if (type === "foliering") return "bg-pink-500 hover:bg-pink-600 border-l-4 border-pink-700";
-    if (type === "external_shipping") return "bg-amber-600 hover:bg-amber-700 border-l-4 border-amber-800";
-    if (type === "customer_pickup") return "bg-cyan-500 hover:bg-cyan-600 border-l-4 border-cyan-700";
-    if (type === "booked") return "bg-emerald-600 hover:bg-emerald-700 border-l-4 border-emerald-800";
-    if (type === "inquiry") return "bg-slate-500 hover:bg-slate-600 border-l-4 border-slate-700";
-    return "bg-gray-500 hover:bg-gray-600 border-l-4 border-gray-700";
-  };
-
-  const getEventIcon = (type: string) => {
-    if (type === "pickup") return <Truck size={16} />;
-    if (type === "event") return <CalendarIcon size={16} />;
-    return <Package size={16} />;
-  };
-
-  const getEventLabel = (type: string, delivery_type?: string) => {
-    if (type === "pickup") return "Upphämtning";
-    if (type === "event") return "Event";
-    if (type === "delivery") return delivery_type === "external" ? "Extern Leverans" : "Intern Leverans";
-    if (type === "internal") return "Internal";
-    if (type === "foliering") return "Foliering";
-    if (type === "external_shipping") return "Extern Frakt";
-    if (type === "customer_pickup") return "Customer Pickup";
-    if (type === "booked") return "Bokat";
-    if (type === "inquiry") return "Förfrågan";
-    return type;
-  };
+  const hours = Array.from({ length: 24 }, (_, i) => i);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Bokningskalender</h1>
-          <p className="text-gray-500 mt-1">Veckovyn över alla bokningar</p>
-        </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
-          <Download size={18} />
-          Exportera PDF
-        </button>
-      </div>
-
-      {/* Week Navigation */}
-      <div className="flex items-center justify-between bg-white rounded-lg p-4 border border-gray-200">
-        <button
-          onClick={() => setCurrentWeekStart(subWeeks(currentWeekStart, 1))}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <ChevronLeft size={20} />
-        </button>
-
-        <div className="text-center">
-          <h2 className="text-lg font-bold text-gray-900">
-            Vecka {format(weekStart, "ww")} ({format(weekStart, "MMM d", { locale: sv })} - {format(weekEnd, "MMM d", { locale: sv })})
-          </h2>
-        </div>
-
-        <button
-          onClick={() => setCurrentWeekStart(addWeeks(currentWeekStart, 1))}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <ChevronRight size={20} />
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex gap-2">
-        {["all", "pickup", "delivery", "event", "internal", "foliering", "external_shipping", "customer_pickup", "booked", "inquiry"].map((type) => (
-          <button
-            key={type}
-            onClick={() => setFilterType(type as any)}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              filterType === type
-                ? "bg-red-600 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            {type === "all" && "Alla"}
-            {type === "pickup" && "📦 Upphämtning"}
-            {type === "delivery" && "🚚 Leverans"}
-            {type === "event" && "🎉 Event"}
-            {type === "internal" && "🏢 Internal"}
-            {type === "foliering" && "✨ Foliering"}
-            {type === "external_shipping" && "📮 Extern Frakt"}
-            {type === "customer_pickup" && "👤 Customer Pickup"}
-            {type === "booked" && "✅ Bokat"}
-            {type === "inquiry" && "❓ Förfrågan"}
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">Bokningskalender</h1>
+            <p className="text-gray-600">Vecka över alla bokningar och uppgifter</p>
+          </div>
+          <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+            <span>📥 Exportera PDF</span>
           </button>
-        ))}
-      </div>
-
-      {/* Gantt Chart */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
-        <table className="w-full border-collapse">
-          {/* Header - Dagar */}
-          <thead>
-            <tr>
-              <th className="bg-gray-100 border-b-2 border-gray-300 p-4 text-left font-bold text-gray-900 w-48 sticky left-0 z-10">
-                Aktivitet
-              </th>
-              {weekDays.map((day) => (
-                <th
-                  key={day.toString()}
-                  className="bg-gray-100 border-b-2 border-gray-300 p-4 text-center font-bold text-gray-900 min-w-40"
-                >
-                  <div className="text-sm uppercase">{format(day, "eee", { locale: sv })}</div>
-                  <div className="text-lg">{format(day, "d MMM", { locale: sv })}</div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-
-          {/* Body - Events per day */}
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={8} className="p-8 text-center text-gray-500">
-                  Laddar bokningar...
-                </td>
-              </tr>
-            ) : bookings.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="p-8 text-center text-gray-500">
-                  Inga bokningar denna vecka
-                </td>
-              </tr>
-            ) : (
-              // Dynamisk rad per boknings-dag
-              weekDays.map((day) => {
-                const dayEvents = getFilteredEvents(getDayEvents(day));
-                
-                return dayEvents.length > 0 ? (
-                  dayEvents.map((event, idx) => (
-                    <tr key={event.id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                      {idx === 0 && (
-                        <td
-                          rowSpan={dayEvents.length}
-                          className="border-r border-gray-200 p-4 bg-gray-50 font-medium text-gray-900 sticky left-0 z-10 align-top"
-                        >
-                        </td>
-                      )}
-                      <td className="border-r border-gray-200 p-0"></td>
-                      {weekDays.map((weekDay) => (
-                        <td key={weekDay.toString()} className="border-r border-gray-200 p-2 text-center min-w-40">
-                          {isSameDay(weekDay, day) && (
-                            <div 
-                              onClick={() => setSelectedEvent(event)}
-                              className={`${getEventColor(event.type, event.delivery_type)} text-white rounded px-3 py-2 text-sm font-medium cursor-pointer hover:shadow-md transition-all group`}
-                            >
-                              <div className="flex items-center gap-1 justify-center mb-1">
-                                {getEventIcon(event.type)}
-                                <span>{getEventLabel(event.type, event.delivery_type)}</span>
-                              </div>
-                              <div className="text-xs truncate">{event.booking_number}</div>
-                              <div className="text-xs truncate">{event.customer_name}</div>
-                              
-                              {/* Tooltip */}
-                              <div className="hidden group-hover:block absolute z-20 bottom-full left-1/2 transform -translate-x-1/2 mb-2 bg-gray-900 text-white p-3 rounded-lg text-left w-48 shadow-lg text-xs">
-                                <p className="font-bold mb-1">{event.booking_number}</p>
-                                <p>📍 {event.location}</p>
-                                <p>👤 {event.customer_name}</p>
-                                <p>📦 {event.products}</p>
-                              </div>
-                            </div>
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                ) : null;
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Operational Schedule */}
-      <div className="bg-white rounded-lg p-6 border border-gray-200">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Operationsöversikt</h2>
-        <div className="space-y-3">
-          {bookings.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">Inga aktiviteter denna vecka</p>
-          ) : (
-            bookings
-              .filter((b) => b.date >= format(weekStart, "yyyy-MM-dd") && b.date <= format(weekEnd, "yyyy-MM-dd"))
-              .filter((b) => filterType === "all" || b.type === filterType)
-              .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-              .map((event) => (
-                <div 
-                  key={event.id} 
-                  onClick={() => setSelectedEvent(event)}
-                  className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:shadow-md hover:bg-white transition-all"
-                >
-                  <div className={`${getEventColor(event.type, event.delivery_type)} text-white rounded p-2 flex-shrink-0`}>
-                    {getEventIcon(event.type)}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-bold text-gray-900">{getEventLabel(event.type, event.delivery_type)}: {event.booking_number}</p>
-                    <p className="text-sm text-gray-600">{event.customer_name}</p>
-                    <p className="text-sm text-gray-600">📍 {event.location}</p>
-                    <p className="text-xs text-gray-500 mt-1">📦 {event.products}</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="font-medium text-gray-900">{format(new Date(event.date), "EEEE d MMM", { locale: sv })}</p>
-                    <p className="text-xs text-gray-500">{event.type}</p>
-                  </div>
-                </div>
-              ))
-          )}
         </div>
-      </div>
 
-      {/* Event Detail Popup */}
-      {selectedEvent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className={`${getEventColor(selectedEvent.type, selectedEvent.delivery_type)} text-white p-6 rounded-t-lg`}>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  {getEventIcon(selectedEvent.type)}
-                  <span className="font-bold text-lg">{getEventLabel(selectedEvent.type, selectedEvent.delivery_type)}</span>
+        {/* Vecka navigering */}
+        <div className="flex justify-between items-center mb-6 pb-4 border-b">
+          <button
+            onClick={() => setCurrentWeekStart(subWeeks(currentWeekStart, 1))}
+            className="p-2 hover:bg-gray-200 rounded-lg"
+          >
+            <ChevronLeft size={24} />
+          </button>
+          <h2 className="text-xl font-semibold">
+            Vecka {format(currentWeekStart, "w")} ({format(weekStart, "MMM dd", { locale: sv })} - {format(weekEnd, "MMM dd", { locale: sv })})
+          </h2>
+          <button
+            onClick={() => setCurrentWeekStart(addWeeks(currentWeekStart, 1))}
+            className="p-2 hover:bg-gray-200 rounded-lg"
+          >
+            <ChevronRight size={24} />
+          </button>
+        </div>
+
+        {/* Filter buttons */}
+        <div className="flex gap-2 mb-6 flex-wrap">
+          {["all", "pickup", "delivery", "event", "internal", "todo"].map((type) => (
+            <button
+              key={type}
+              onClick={() => setFilterType(type)}
+              className={`px-4 py-2 rounded-lg font-medium transition ${
+                filterType === type
+                  ? "bg-red-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              {type === "all" && "Alla"}
+              {type === "pickup" && "🚚 Upphämtning"}
+              {type === "delivery" && "📦 Leverans"}
+              {type === "event" && "🎉 Event"}
+              {type === "internal" && "📋 Internal"}
+              {type === "todo" && "✓ Uppgifter"}
+            </button>
+          ))}
+        </div>
+
+        {/* Calendar Grid - Time-based */}
+        <div className="overflow-x-auto">
+          <div className="min-w-full">
+            {/* Header with days */}
+            <div className="grid grid-cols-8 gap-1 mb-2">
+              <div className="w-24 font-bold text-center text-gray-700 pb-2">Tid</div>
+              {weekDays.map((day) => (
+                <div key={day.toString()} className="text-center">
+                  <div className="font-bold text-gray-700">{format(day, "EEEE", { locale: sv }).toUpperCase()}</div>
+                  <div className="text-sm text-gray-600">{format(day, "d MMM", { locale: sv })}</div>
                 </div>
-                <button onClick={() => setSelectedEvent(null)} className="p-1 hover:bg-white hover:bg-opacity-20 rounded">✕</button>
-              </div>
-              <p className="text-sm opacity-90">{selectedEvent.booking_number}</p>
+              ))}
             </div>
 
-            <div className="p-6 space-y-4">
-              <div>
-                <p className="text-sm text-gray-600 font-semibold mb-1">Kund</p>
-                <p className="text-gray-900">{selectedEvent.customer_name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 font-semibold mb-1 flex items-center gap-1">
-                  <MapPin size={16} />
-                  Plats
-                </p>
-                <p className="text-gray-900">{selectedEvent.location}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 font-semibold mb-1 flex items-center gap-1">
-                  <Package size={16} />
-                  Produkter
-                </p>
-                <p className="text-gray-900 text-sm">{selectedEvent.products}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 font-semibold mb-1 flex items-center gap-1">
-                  <CalendarIcon size={16} />
-                  Datum
-                </p>
-                <p className="text-gray-900">{format(new Date(selectedEvent.date), "EEEE d MMMM yyyy", { locale: sv })}</p>
-              </div>
+            {/* Time slots and events */}
+            <div className="border rounded-lg bg-white overflow-hidden">
+              {hours.map((hour) => {
+                const timeStr = `${String(hour).padStart(2, "0")}:00`;
+                return (
+                  <div key={hour} className="grid grid-cols-8 gap-1 border-b">
+                    {/* Time label */}
+                    <div className="w-24 bg-gray-50 p-2 text-sm font-medium text-gray-700 text-center border-r sticky left-0">
+                      {timeStr}
+                    </div>
+
+                    {/* Day columns */}
+                    {weekDays.map((day) => {
+                      const dayKey = format(day, "yyyy-MM-dd");
+                      const { timedEvents } = getDayEvents(day);
+                      
+                      const eventsAtThisHour = timedEvents.filter((event) => {
+                        const startTime = event.type === "todo"
+                          ? (event as TodoEvent).start_time
+                          : (event as BookingEvent).start_time;
+                        
+                        if (!startTime) return false;
+                        const [eventHour] = startTime.split(":").map(Number);
+                        return eventHour === hour;
+                      });
+
+                      return (
+                        <div
+                          key={`${dayKey}-${hour}`}
+                          className="min-h-20 p-1 border-r bg-white hover:bg-gray-50 transition relative"
+                        >
+                          {eventsAtThisHour.map((event, idx) => (
+                            <div
+                              key={`${event.id}-${idx}`}
+                              onClick={() => handleEventClick(event)}
+                              className={`${getEventColor(event).bg} border-l-4 ${getEventColor(event).border} p-2 rounded text-xs mb-1 cursor-pointer hover:shadow-md transition truncate`}
+                              title={event.type === "todo" ? (event as TodoEvent).title : (event as BookingEvent).booking_number}
+                            >
+                              <div className="font-bold">
+                                {getEventIcon(event.type)} {event.type === "todo" ? (event as TodoEvent).title : (event as BookingEvent).booking_number}
+                              </div>
+                              {event.type === "todo" ? (
+                                <div className="text-xs text-gray-600">
+                                  {(event as TodoEvent).start_time} - {(event as TodoEvent).end_time || ""}
+                                </div>
+                              ) : (
+                                <div className="text-xs text-gray-600">
+                                  {(event as BookingEvent).customer_name}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="border-t border-gray-200 p-4 flex gap-3">
-              <button onClick={() => setSelectedEvent(null)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">
-                Stäng
-              </button>
+            {/* Untimed events section */}
+            <div className="mt-8">
+              <h3 className="font-bold text-gray-700 mb-4">Uppgifter utan tidsspann</h3>
+              <div className="grid grid-cols-8 gap-1">
+                <div className="w-24"></div>
+                {weekDays.map((day) => {
+                  const { untimedEvents } = getDayEvents(day);
+                  return (
+                    <div key={format(day, "yyyy-MM-dd")} className="space-y-2">
+                      {untimedEvents.map((event, idx) => (
+                        <div
+                          key={`untimed-${event.id}-${idx}`}
+                          className={`${getEventColor(event).bg} border-l-4 ${getEventColor(event).border} p-2 rounded text-xs cursor-pointer hover:shadow-md transition`}
+                          onClick={() => handleEventClick(event)}
+                        >
+                          <div className="font-bold truncate">
+                            {getEventIcon(event.type)} {event.type === "todo" ? (event as TodoEvent).title : (event as BookingEvent).booking_number}
+                          </div>
+                          {event.type === "todo" && (
+                            <div className="text-gray-600 truncate">{(event as TodoEvent).title}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
-      )}
+
+        {/* Event Detail Popup */}
+        {selectedEvent && selectedEvent.type !== "todo" && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-xl font-bold">{(selectedEvent as BookingEvent).booking_number}</h3>
+                <button
+                  onClick={() => setSelectedEvent(null)}
+                  className="p-1 hover:bg-gray-200 rounded"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <div>
+                  <p className="font-semibold text-gray-700">Typ</p>
+                  <p>{selectedEvent.type}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-700">Kund</p>
+                  <p>{(selectedEvent as BookingEvent).customer_name}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-700">Datum</p>
+                  <p>{format(parseISO(selectedEvent.date), "PPP", { locale: sv })}</p>
+                </div>
+                {(selectedEvent as BookingEvent).start_time && (
+                  <div>
+                    <p className="font-semibold text-gray-700">Tid</p>
+                    <p>{(selectedEvent as BookingEvent).start_time}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="font-semibold text-gray-700">Plats</p>
+                  <p className="flex items-center gap-1">
+                    <MapPin size={16} /> {(selectedEvent as BookingEvent).location}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-700">Produkter</p>
+                  <p>{(selectedEvent as BookingEvent).products}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  router.push(`/dashboard/bookings/${(selectedEvent as BookingEvent).booking_id}`);
+                  setSelectedEvent(null);
+                }}
+                className="w-full mt-4 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 font-medium"
+              >
+                Se Bokning
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
