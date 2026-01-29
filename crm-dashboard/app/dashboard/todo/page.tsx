@@ -779,7 +779,9 @@ export default function TODOPage() {
                     </div>
                   </div>
                 )}
-              );
+              </div>
+            </div>
+            );
             })
           )}
         </div>
