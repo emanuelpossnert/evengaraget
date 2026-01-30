@@ -53,6 +53,18 @@ interface TodoEvent {
 
 type Event = BookingEvent | TodoEvent;
 
+// Helper function to get date from either event type
+const getEventDate = (event: Event): string => {
+  if (event.type === "todo") {
+    return (event as TodoEvent).start_date;
+  }
+  return (event as BookingEvent).date;
+};
+
+const getEventEndDate = (event: Event): string => {
+  return event.end_date;
+};
+
 interface DayColumn {
   date: Date;
   events: Event[];
@@ -243,10 +255,13 @@ export default function CalendarPage() {
   // Separera timed och untimed events för en dag, med filter
   const getDayEvents = (date: Date) => {
     const dayEvents = events.filter((event) => {
-      if (!event.date || !event.end_date) return false;
+      const eventDate = getEventDate(event);
+      const eventEndDate = getEventEndDate(event);
+      
+      if (!eventDate || !eventEndDate) return false;
       try {
-        const eventStart = parseISO(event.date);
-        const eventEnd = parseISO(event.end_date);
+        const eventStart = parseISO(eventDate);
+        const eventEnd = parseISO(eventEndDate);
         
         // Apply type filter
         if (filterType !== "all" && event.type !== filterType) {
