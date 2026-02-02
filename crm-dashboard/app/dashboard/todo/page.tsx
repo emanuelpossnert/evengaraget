@@ -79,7 +79,36 @@ export default function TODOPage() {
         .order('due_date', { ascending: true });
       
       if (error) throw error;
-      setTasks(data || []);
+      
+      // Fetch customer names for tasks with booking_id
+      const tasksWithCustomers = await Promise.all(
+        (data || []).map(async (task) => {
+          if (task.booking_id) {
+            try {
+              const { data: booking } = await supabase
+                .from('bookings')
+                .select('customer_id')
+                .eq('id', task.booking_id)
+                .single();
+              
+              if (booking?.customer_id) {
+                const { data: customer } = await supabase
+                  .from('customers')
+                  .select('name')
+                  .eq('id', booking.customer_id)
+                  .single();
+                
+                return { ...task, customer_name: customer?.name || undefined };
+              }
+            } catch (err) {
+              console.error('Error fetching customer for task:', err);
+            }
+          }
+          return task;
+        })
+      );
+      
+      setTasks(tasksWithCustomers);
     } catch (error) {
       console.error('Error fetching tasks:', error);
     } finally {
@@ -499,6 +528,9 @@ export default function TODOPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <h3 className="font-bold text-lg">{task.title}</h3>
+                      {task.customer_name && (
+                        <p className="text-sm text-blue-600 font-medium">👤 {task.customer_name}</p>
+                      )}
                       {task.description && <p className="text-sm text-gray-700 mt-1">{task.description}</p>}
                       
                       {/* Visa datum och tid */}

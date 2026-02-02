@@ -161,6 +161,7 @@ export interface Task {
   start_time?: string;      // HH:MM
   end_date?: string;        // YYYY-MM-DD
   end_time?: string;        // HH:MM
+  customer_name?: string;   // Customer name if booking_id exists
   created_at: string;
   updated_at: string;
 }
