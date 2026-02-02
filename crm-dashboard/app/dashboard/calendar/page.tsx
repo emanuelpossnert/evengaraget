@@ -298,7 +298,7 @@ export default function CalendarPage() {
     setSelectedEvent(event as BookingEvent);
   };
 
-  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const hours = Array.from({ length: 18 }, (_, i) => i + 6); // 06:00 to 23:00
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
