@@ -15,23 +15,30 @@ COMMENT ON COLUMN public.customers.personal_number IS 'Personal ID number (Perso
 -- 3. Create indexes for filtering
 CREATE INDEX IF NOT EXISTS idx_customers_type ON public.customers(customer_type);
 
--- 4. Add check constraint to ensure proper validation
-ALTER TABLE public.customers
-ADD CONSTRAINT check_org_or_personal CHECK (
-  (customer_type = 'business' AND org_number IS NOT NULL) OR
-  (customer_type = 'private' AND personal_number IS NOT NULL) OR
-  (org_number IS NULL AND personal_number IS NULL)
-);
-
--- 5. Update existing customers to have default type if missing
+-- 4. Update existing customers to have default values
 UPDATE public.customers
 SET customer_type = 'business'
 WHERE customer_type IS NULL;
 
--- 6. Enable RLS if not already enabled
+-- 5. For rows without any ID number, set a placeholder org_number (can be updated later)
+UPDATE public.customers
+SET org_number = 'N/A'
+WHERE org_number IS NULL AND personal_number IS NULL AND customer_type = 'business';
+
+-- 6. Drop existing constraint if it exists (to avoid conflicts)
+ALTER TABLE public.customers DROP CONSTRAINT IF EXISTS check_org_or_personal;
+
+-- 7. Add check constraint to ensure proper validation
+ALTER TABLE public.customers
+ADD CONSTRAINT check_org_or_personal CHECK (
+  (customer_type = 'business' AND org_number IS NOT NULL) OR
+  (customer_type = 'private' AND personal_number IS NOT NULL)
+);
+
+-- 8. Enable RLS if not already enabled
 ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
 
--- 7. RLS policies (if not already set)
+-- 9. RLS policies (if not already set)
 DROP POLICY IF EXISTS "Allow authenticated users to view customers" ON public.customers;
 CREATE POLICY "Allow authenticated users to view customers"
   ON public.customers
