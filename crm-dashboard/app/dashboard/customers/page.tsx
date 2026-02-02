@@ -37,7 +37,7 @@ export default function CustomersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive" | "blocked">("all");
-  const [typeFilter, setTypeFilter] = useState<"all" | "private" | "business" | "vip">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "private" | "business" | "vip">("business");
 
   useEffect(() => {
     fetchCustomers();
