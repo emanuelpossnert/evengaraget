@@ -27,11 +27,12 @@ export interface Customer {
   phone?: string;
   company_name?: string;
   org_number?: string;
+  personal_number?: string;
+  customer_type?: "private" | "business";
   street_address?: string;
   postal_code?: string;
   city?: string;
   country?: string;
-  customer_type?: "private" | "business" | "vip";
   status?: "active" | "inactive" | "blocked";
   is_vip?: boolean;
   total_bookings?: number;

@@ -46,6 +46,9 @@ export default function NewManualBookingPage() {
 
   const [formData, setFormData] = useState({
     customer_id: "",
+    customer_type: "business" as "private" | "business",
+    org_number: "",
+    personal_number: "",
     pickup_date: "",
     pickup_time: "", // HH:MM format
     delivery_date: "",
