@@ -568,56 +568,8 @@ export default function CustomerCRMPage() {
 
           {/* Contact Info */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">📋 Kontaktinformation</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-gray-500 uppercase">Email</p>
-                <p className="text-gray-900 font-medium mt-1">{customer.email}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase">Telefon</p>
-                <p className="text-gray-900 font-medium mt-1">{customer.phone || "-"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase">Företag</p>
-                <p className="text-gray-900 font-medium mt-1">{customer.company_name || "-"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase">Org-nummer</p>
-                <p className="text-gray-900 font-medium mt-1">{customer.org_number || "-"}</p>
-              </div>
-              <div className="md:col-span-2">
-                <p className="text-xs text-gray-500 uppercase">Adress</p>
-                <p className="text-gray-900 font-medium mt-1">
-                  {customer.street_address}, {customer.postal_code} {customer.city}, {customer.country}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase">Kundtyp</p>
-                <p className="text-gray-900 font-medium mt-1">
-                  {customer.customer_type === 'business' ? 'Företag' : 'Privat'}
-                  {customer.is_vip && ' (VIP)'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase">Status</p>
-                <p className="text-gray-900 font-medium mt-1">
-                  {customer.status === 'active' ? '🟢 Aktiv' : customer.status === 'inactive' ? '🟡 Inaktiv' : '🔴 Blockerad'}
-                </p>
-              </div>
-            </div>
-            {customer.notes && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <p className="text-xs text-gray-500 uppercase">Anteckningar</p>
-                <p className="text-gray-900 mt-1 whitespace-pre-wrap">{customer.notes}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Priority & Next Action */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold text-gray-900">⚡ Prioritet & Nästa Åtgärd</h2>
+              <h2 className="text-lg font-bold text-gray-900">📋 Kontaktinformation</h2>
               <button
                 onClick={() => setEditingCustomer(!editingCustomer)}
                 className="px-3 py-1 bg-blue-50 text-blue-600 rounded text-sm font-semibold hover:bg-blue-100"
@@ -625,6 +577,197 @@ export default function CustomerCRMPage() {
                 {editingCustomer ? "Avbryt" : "Redigera"}
               </button>
             </div>
+            
+            {editingCustomer ? (
+              <div className="space-y-4">
+                {/* Customer Type */}
+                <div>
+                  <label className="block text-xs text-gray-600 mb-2 font-semibold uppercase">Kundtyp</label>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="customer_type"
+                        value="private"
+                        checked={customerForm.customer_type === "private"}
+                        onChange={(e) =>
+                          setCustomerForm({
+                            ...customerForm,
+                            customer_type: "private",
+                            org_number: undefined,
+                          })
+                        }
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm font-medium">Privatperson</span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="customer_type"
+                        value="business"
+                        checked={customerForm.customer_type === "business"}
+                        onChange={(e) =>
+                          setCustomerForm({
+                            ...customerForm,
+                            customer_type: "business",
+                            personal_number: undefined,
+                          })
+                        }
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm font-medium">Företag</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* ID Numbers */}
+                {customerForm.customer_type === "private" ? (
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1 font-semibold uppercase">Personnummer</label>
+                    <input
+                      type="text"
+                      value={customerForm.personal_number || ""}
+                      onChange={(e) => setCustomerForm({ ...customerForm, personal_number: e.target.value })}
+                      placeholder="YYYYMMDD-XXXX"
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1 font-semibold uppercase">Organisationsnummer</label>
+                    <input
+                      type="text"
+                      value={customerForm.org_number || ""}
+                      onChange={(e) => setCustomerForm({ ...customerForm, org_number: e.target.value })}
+                      placeholder="XXXXXXXXXX"
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    />
+                  </div>
+                )}
+
+                {/* Other fields */}
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1 font-semibold uppercase">Email</label>
+                  <input
+                    type="email"
+                    value={customerForm.email || ""}
+                    onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1 font-semibold uppercase">Telefon</label>
+                  <input
+                    type="tel"
+                    value={customerForm.phone || ""}
+                    onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1 font-semibold uppercase">Företag</label>
+                  <input
+                    type="text"
+                    value={customerForm.company_name || ""}
+                    onChange={(e) => setCustomerForm({ ...customerForm, company_name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1 font-semibold uppercase">Adress</label>
+                  <input
+                    type="text"
+                    value={customerForm.street_address || ""}
+                    onChange={(e) => setCustomerForm({ ...customerForm, street_address: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1 font-semibold uppercase">Postnummer</label>
+                    <input
+                      type="text"
+                      value={customerForm.postal_code || ""}
+                      onChange={(e) => setCustomerForm({ ...customerForm, postal_code: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1 font-semibold uppercase">Stad</label>
+                    <input
+                      type="text"
+                      value={customerForm.city || ""}
+                      onChange={(e) => setCustomerForm({ ...customerForm, city: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={updateCustomer}
+                  className="w-full px-3 py-2 bg-green-600 text-white rounded font-semibold hover:bg-green-700"
+                >
+                  Spara ändringar
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Email</p>
+                  <p className="text-gray-900 font-medium mt-1">{customer.email}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Telefon</p>
+                  <p className="text-gray-900 font-medium mt-1">{customer.phone || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Företag</p>
+                  <p className="text-gray-900 font-medium mt-1">{customer.company_name || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Kundtyp</p>
+                  <p className="text-gray-900 font-medium mt-1">
+                    {customer.customer_type === 'business' ? 'Företag' : 'Privat'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">
+                    {customer.customer_type === 'business' ? 'Organisationsnummer' : 'Personnummer'}
+                  </p>
+                  <p className="text-gray-900 font-medium mt-1">
+                    {customer.customer_type === 'business' ? (customer.org_number || "-") : (customer.personal_number || "-")}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Status</p>
+                  <p className="text-gray-900 font-medium mt-1">
+                    {customer.status === 'active' ? '🟢 Aktiv' : customer.status === 'inactive' ? '🟡 Inaktiv' : '🔴 Blockerad'}
+                  </p>
+                </div>
+                <div className="md:col-span-2">
+                  <p className="text-xs text-gray-500 uppercase">Adress</p>
+                  <p className="text-gray-900 font-medium mt-1">
+                    {customer.street_address}, {customer.postal_code} {customer.city}, {customer.country}
+                  </p>
+                </div>
+                {customer.notes && (
+                  <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-200">
+                    <p className="text-xs text-gray-500 uppercase">Anteckningar</p>
+                    <p className="text-gray-900 mt-1 whitespace-pre-wrap">{customer.notes}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Priority & Next Action */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">⚡ Prioritet & Nästa Åtgärd</h2>
 
             {editingCustomer ? (
               <div className="space-y-3">
@@ -662,13 +805,6 @@ export default function CustomerCRMPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                   />
                 </div>
-
-                <button
-                  onClick={updateCustomer}
-                  className="w-full px-3 py-2 bg-green-600 text-white rounded font-semibold hover:bg-green-700"
-                >
-                  Spara
-                </button>
               </div>
             ) : (
               <div className="space-y-2">
