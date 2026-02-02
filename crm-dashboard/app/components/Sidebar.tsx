@@ -92,12 +92,6 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       roles: ["admin", "manager"],
     },
     {
-      name: "Kunder",
-      icon: Users,
-      href: "/dashboard/customers",
-      roles: ["admin", "manager", "support"],
-    },
-    {
       name: "Bokningar",
       icon: ShoppingCart,
       href: "/dashboard/bookings",
@@ -143,6 +137,11 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
 
   // Admin-only subsections
   const adminItems = [
+    {
+      name: "Kunder",
+      icon: Users,
+      href: "/dashboard/customers",
+    },
     {
       name: "Analytics",
       icon: BarChart3,
