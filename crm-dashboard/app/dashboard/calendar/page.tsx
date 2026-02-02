@@ -360,6 +360,41 @@ export default function CalendarPage() {
         {/* Calendar Grid - Time-based */}
         <div className="overflow-x-auto">
           <div className="min-w-full">
+            {/* Untimed events section - visas längst upp */}
+            <div className="mb-8">
+              <h3 className="font-bold text-gray-700 mb-4">Uppgifter utan tidsspann</h3>
+              <div className="grid grid-cols-8 gap-1">
+                <div className="w-24"></div>
+                {weekDays.map((day) => {
+                  const { untimedEvents } = getDayEvents(day);
+                  return (
+                    <div key={format(day, "yyyy-MM-dd")} className="space-y-2">
+                      {untimedEvents.map((event, idx) => (
+                        <div
+                          key={`untimed-${event.id}-${idx}`}
+                          className={`${getEventColor(event).bg} border-l-4 ${getEventColor(event).border} p-2 rounded text-xs cursor-pointer hover:shadow-md transition`}
+                          onClick={() => handleEventClick(event)}
+                        >
+                          <div className="font-bold truncate">
+                            {getEventIcon(event.type)} {event.type === "todo" ? (event as TodoEvent).title : (event as BookingEvent).booking_number}
+                          </div>
+                          {event.type === "todo" && (
+                            <div>
+                              <div className="text-gray-600 truncate">{(event as TodoEvent).title}</div>
+                              <div className="text-xs font-semibold mt-1">
+                                {(event as TodoEvent).status === "pending" && "⏳ Väntande"}
+                                {(event as TodoEvent).status === "in_progress" && "🔄 Pågåande"}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Header with days */}
             <div className="grid grid-cols-8 gap-1 mb-2">
               <div className="w-24 font-bold text-center text-gray-700 pb-2">Tid</div>
@@ -435,41 +470,6 @@ export default function CalendarPage() {
                   </div>
                 );
               })}
-            </div>
-
-            {/* Untimed events section */}
-            <div className="mt-8">
-              <h3 className="font-bold text-gray-700 mb-4">Uppgifter utan tidsspann</h3>
-              <div className="grid grid-cols-8 gap-1">
-                <div className="w-24"></div>
-                {weekDays.map((day) => {
-                  const { untimedEvents } = getDayEvents(day);
-                  return (
-                    <div key={format(day, "yyyy-MM-dd")} className="space-y-2">
-                      {untimedEvents.map((event, idx) => (
-                        <div
-                          key={`untimed-${event.id}-${idx}`}
-                          className={`${getEventColor(event).bg} border-l-4 ${getEventColor(event).border} p-2 rounded text-xs cursor-pointer hover:shadow-md transition`}
-                          onClick={() => handleEventClick(event)}
-                        >
-                          <div className="font-bold truncate">
-                            {getEventIcon(event.type)} {event.type === "todo" ? (event as TodoEvent).title : (event as BookingEvent).booking_number}
-                          </div>
-                          {event.type === "todo" && (
-                            <div>
-                              <div className="text-gray-600 truncate">{(event as TodoEvent).title}</div>
-                              <div className="text-xs font-semibold mt-1">
-                                {(event as TodoEvent).status === "pending" && "⏳ Väntande"}
-                                {(event as TodoEvent).status === "in_progress" && "🔄 Pågåande"}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           </div>
         </div>
