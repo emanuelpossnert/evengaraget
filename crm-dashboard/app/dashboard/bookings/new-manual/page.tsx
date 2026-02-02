@@ -275,6 +275,17 @@ export default function NewManualBookingPage() {
       setError("Välj en kund");
       return;
     }
+    
+    // Validate customer type and ID numbers
+    if (formData.customer_type === "private" && !formData.personal_number) {
+      setError("Personnummer är obligatoriskt för privatpersoner");
+      return;
+    }
+    if (formData.customer_type === "business" && !formData.org_number) {
+      setError("Organisationsnummer är obligatoriskt för företag");
+      return;
+    }
+    
     if (!formData.pickup_date || !formData.delivery_date) {
       setError("Pickup- och leveransdatum är obligatoriska");
       return;
@@ -290,6 +301,20 @@ export default function NewManualBookingPage() {
 
     try {
       setLoading(true);
+
+      // First, update customer with type and ID numbers if needed
+      if (selectedCustomer) {
+        const { error: updateError } = await supabase
+          .from("customers")
+          .update({
+            customer_type: formData.customer_type,
+            org_number: formData.customer_type === "business" ? formData.org_number : null,
+            personal_number: formData.customer_type === "private" ? formData.personal_number : null,
+          })
+          .eq("id", formData.customer_id);
+
+        if (updateError) throw updateError;
+      }
 
       const bookingNumber = `BK-${Date.now()}`;
       const pricing = calculateTotalPrice();
@@ -401,6 +426,86 @@ export default function NewManualBookingPage() {
               )}
             </div>
           )}
+
+        {/* Customer Type & ID Numbers */}
+        {selectedCustomer && (
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">Kundtyp & ID-nummer</h3>
+            
+            {/* Radio buttons for customer type */}
+            <div className="space-y-3 mb-6">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="customer_type"
+                  value="private"
+                  checked={formData.customer_type === "private"}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      customer_type: "private",
+                      org_number: "",
+                    }))
+                  }
+                  className="w-4 h-4 text-red-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Privatperson</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="customer_type"
+                  value="business"
+                  checked={formData.customer_type === "business"}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      customer_type: "business",
+                      personal_number: "",
+                    }))
+                  }
+                  className="w-4 h-4 text-red-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Företag</span>
+              </label>
+            </div>
+
+            {/* Conditional inputs */}
+            {formData.customer_type === "private" ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Personnummer (YYYYMMDD-XXXX) *
+                </label>
+                <input
+                  type="text"
+                  value={formData.personal_number}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, personal_number: e.target.value }))
+                  }
+                  placeholder="198512124512"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                  required
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Organisationsnummer (XXXXXXXXXX) *
+                </label>
+                <input
+                  type="text"
+                  value={formData.org_number}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, org_number: e.target.value }))
+                  }
+                  placeholder="5566778899"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-red-500"
+                  required
+                />
+              </div>
+            )}
+          </div>
+        )}
         </div>
 
         {/* Step 2: Event Dates */}
